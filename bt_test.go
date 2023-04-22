@@ -190,8 +190,11 @@ func TestBinarySelector(t *testing.T) {
 // TestSwitch tests the Switch behavior.
 func TestSwitch(t *testing.T) {
 	switchNode := &bt.Switch{
-		Key: "success",
-		Cases: map[bt.Key]bt.Behavior{
+		KeyFunc: func(ctx *bt.BehaviorContext) string {
+			key, _ := ctx.Get("key")
+			return key.(string)
+		},
+		Cases: map[string]bt.Behavior{
 			"success": alwaysSuccessAction(),
 			"failure": alwaysFailureAction(),
 		},
@@ -200,18 +203,20 @@ func TestSwitch(t *testing.T) {
 
 	ctx := bt.NewBehaviorContext(context.Background())
 
+	// Test with success key
+	ctx.Set("key", "success")
 	if result := switchNode.Tick(ctx); result != bt.Success {
 		t.Errorf("expected success, but got %v", result)
 	}
 
-	switchNode.Key = "failure"
-
+	// Test with failure key
+	ctx.Set("key", "failure")
 	if result := switchNode.Tick(ctx); result != bt.Failure {
 		t.Errorf("expected failure, but got %v", result)
 	}
 
-	switchNode.Key = "unknown"
-
+	// Test with unknown key
+	ctx.Set("key", "unknown")
 	if result := switchNode.Tick(ctx); result != bt.Running {
 		t.Errorf("expected running, but got %v", result)
 	}
