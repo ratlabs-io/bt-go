@@ -6,10 +6,9 @@
 
 To use this package in your Go project, simply import it as follows:
 
-````go
+```
 import "github.com/ratlabs-io/go-bt"
 ```
-
 
 ## Usage
 
@@ -50,4 +49,4 @@ func main() {
 	// Print the status
 	fmt.Println(status)
 }
-````
+```
