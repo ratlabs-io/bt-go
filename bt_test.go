@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ratlabs-io/go-bt"
+	"github.com/ratlabs-io/bt-go"
 )
 
 func alwaysFalseCondition() *bt.Condition {
