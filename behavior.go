@@ -13,18 +13,25 @@ const (
 	Failure
 	// Running represents a behavior that is still in progress.
 	Running
-	// Invalid represents a behavior that has not been initialized.
-	Invalid
-	// Aborted represents a behavior that has been aborted.
-	Aborted
 )
 
-// Behavior is the interface that all behavior tree nodes must implement.
+// To String method for RunStatus
+func (rs RunStatus) String() string {
+	switch rs {
+	case Success:
+		return "Success"
+	case Failure:
+		return "Failure"
+	case Running:
+		return "Running"
+	default:
+		return "Unknown"
+	}
+}
+
+// Behavior defines the interface for all behavior tree nodes.
 type Behavior interface {
-	// Tick is called to update the behavior's state. It takes a context as an argument.
-	Tick(ctx *BehaviorContext) RunStatus
-	// Abort is called to abort the behavior's execution. It takes a context as an argument.
-	Abort(ctx *BehaviorContext)
+	Tick(*BehaviorContext) RunStatus
 }
 
 // Composite is the base type for nodes that have children in a behavior tree.

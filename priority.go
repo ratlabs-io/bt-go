@@ -21,10 +21,3 @@ func (ps *PrioritySelector) Tick(ctx *BehaviorContext) RunStatus {
 	}
 	return Failure
 }
-
-// Abort aborts the currently running child node, if any.
-func (ps *PrioritySelector) Abort(ctx *BehaviorContext) {
-	if ps.runningChildIndex >= 0 && ps.runningChildIndex < len(ps.Children) {
-		ps.Children[ps.runningChildIndex].Abort(ctx)
-	}
-}

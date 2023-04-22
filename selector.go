@@ -21,10 +21,3 @@ func (s *Selector) Tick(ctx *BehaviorContext) RunStatus {
 	}
 	return Failure
 }
-
-// Abort aborts the currently running child node, if any.
-func (s *Selector) Abort(ctx *BehaviorContext) {
-	if s.runningChildIndex >= 0 && s.runningChildIndex < len(s.Children) {
-		s.Children[s.runningChildIndex].Abort(ctx)
-	}
-}

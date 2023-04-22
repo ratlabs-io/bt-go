@@ -22,10 +22,3 @@ func (s *SequenceNode) Tick(ctx *BehaviorContext) RunStatus {
 	}
 	return Success
 }
-
-// Abort aborts the currently running child node, if any.
-func (s *SequenceNode) Abort(ctx *BehaviorContext) {
-	if s.runningChildIndex >= 0 && s.runningChildIndex < len(s.Children) {
-		s.Children[s.runningChildIndex].Abort(ctx)
-	}
-}

@@ -13,3 +13,8 @@ func (c *Condition) Tick(ctx *BehaviorContext) RunStatus {
 	}
 	return Failure
 }
+
+// ConditionBehavior embeds bt.Condition and implements the bt.Behavior interface.
+type ConditionBehavior struct {
+	*Condition
+}

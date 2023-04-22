@@ -2,7 +2,7 @@ package bt
 
 // BinarySelector is a behavior tree node that conditionally executes one of two child nodes based on a condition.
 type BinarySelector struct {
-	Condition Condition
+	Condition Behavior
 	IfTrue    Behavior
 	IfFalse   Behavior
 }

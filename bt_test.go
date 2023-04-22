@@ -27,14 +27,14 @@ func TestAction(t *testing.T) {
 // TestSequence tests the Sequence behavior.
 func TestSequence(t *testing.T) {
 	ctx := bt.NewBehaviorContext(context.Background())
-	success := &bt.Condition{
-		Condition: func(ctx *bt.BehaviorContext) bool {
-			return true
+	success := &bt.Action{
+		Action: func(ctx *bt.BehaviorContext) bt.RunStatus {
+			return bt.Success
 		},
 	}
-	failure := &bt.Condition{
-		Condition: func(ctx *bt.BehaviorContext) bool {
-			return false
+	failure := &bt.Action{
+		Action: func(ctx *bt.BehaviorContext) bt.RunStatus {
+			return bt.Failure
 		},
 	}
 	running := &bt.Action{
@@ -51,39 +51,61 @@ func TestSequence(t *testing.T) {
 			},
 		},
 	}
-	if sequence.Tick(ctx) != bt.Failure {
-		t.Errorf("expected failure")
+	if result := sequence.Tick(ctx); result != bt.Failure {
+		t.Errorf("expected failure, but got %v", result)
 	}
-	if sequence.Tick(ctx) != bt.Failure {
-		t.Errorf("expected failure")
+	if result := sequence.Tick(ctx); result != bt.Failure {
+		t.Errorf("expected failure, but got %v", result)
 	}
-	if sequence.Tick(ctx) != bt.Running {
-		t.Errorf("expected running")
+
+	sequence = &bt.SequenceNode{
+		Composite: bt.Composite{
+			Children: []bt.Behavior{
+				success,
+				success,
+				running,
+			},
+		},
 	}
-	if sequence.Tick(ctx) != bt.Running {
-		t.Errorf("expected running")
+
+	if result := sequence.Tick(ctx); result != bt.Running {
+		t.Errorf("expected running, but got %v", result)
+	}
+	if result := sequence.Tick(ctx); result != bt.Running {
+		t.Errorf("expected running, but got %v", result)
 	}
 	ctx.Set("running", true)
-	if sequence.Tick(ctx) != bt.Running {
-		t.Errorf("expected running")
+	if result := sequence.Tick(ctx); result != bt.Running {
+		t.Errorf("expected running, but got %v", result)
 	}
+
+	sequence = &bt.SequenceNode{
+		Composite: bt.Composite{
+			Children: []bt.Behavior{
+				success,
+				success,
+				success,
+			},
+		},
+	}
+
 	ctx.Set("running", false)
-	if sequence.Tick(ctx) != bt.Success {
-		t.Errorf("expected success")
+	if result := sequence.Tick(ctx); result != bt.Success {
+		t.Errorf("expected success, but got %v", result)
 	}
 }
 
 // TestSelector tests the Selector behavior.
 func TestSelector(t *testing.T) {
 	ctx := bt.NewBehaviorContext(context.Background())
-	success := &bt.Condition{
-		Condition: func(ctx *bt.BehaviorContext) bool {
-			return true
+	success := &bt.Action{
+		Action: func(ctx *bt.BehaviorContext) bt.RunStatus {
+			return bt.Success
 		},
 	}
-	failure := &bt.Condition{
-		Condition: func(ctx *bt.BehaviorContext) bool {
-			return false
+	failure := &bt.Action{
+		Action: func(ctx *bt.BehaviorContext) bt.RunStatus {
+			return bt.Failure
 		},
 	}
 	running := &bt.Action{
@@ -95,33 +117,54 @@ func TestSelector(t *testing.T) {
 		Composite: bt.Composite{
 			Children: []bt.Behavior{
 				failure,
+				failure,
+			},
+		},
+	}
+	if result := selector.Tick(ctx); result != bt.Failure {
+		t.Errorf("expected failue, but got %v", result)
+	}
+
+	selector = &bt.Selector{
+		Composite: bt.Composite{
+			Children: []bt.Behavior{
+				failure,
 				running,
+			},
+		},
+	}
+	if result := selector.Tick(ctx); result != bt.Running {
+		t.Errorf("expected running, but got %v", result)
+	}
+
+	selector = &bt.Selector{
+		Composite: bt.Composite{
+			Children: []bt.Behavior{
+				failure,
 				success,
 			},
 		},
 	}
-	if selector.Tick(ctx) != bt.Running {
-		t.Errorf("expected running")
-	}
-	if selector.Tick(ctx) != bt.Running {
-		t.Errorf("expected running")
-	}
-	if selector.Tick(ctx) != bt.Success {
-		t.Errorf("expected success")
+	if result := selector.Tick(ctx); result != bt.Success {
+		t.Errorf("expected success, but got %v", result)
 	}
 }
 
 // TestPrioritySelector tests the PrioritySelector behavior.
 func TestPrioritySelector(t *testing.T) {
 	ctx := bt.NewBehaviorContext(context.Background())
-	success := &bt.Condition{
-		Condition: func(ctx *bt.BehaviorContext) bool {
-			return true
+	success := &bt.ConditionBehavior{
+		Condition: &bt.Condition{
+			Check: func(ctx *bt.BehaviorContext) bool {
+				return true
+			},
 		},
 	}
-	failure := &bt.Condition{
-		Condition: func(ctx *bt.BehaviorContext) bool {
-			return false
+	failure := &bt.ConditionBehavior{
+		Condition: &bt.Condition{
+			Check: func(ctx *bt.BehaviorContext) bool {
+				return false
+			},
 		},
 	}
 	priority := &bt.PrioritySelector{
@@ -132,28 +175,32 @@ func TestPrioritySelector(t *testing.T) {
 			},
 		},
 	}
-	if priority.Tick(ctx) != bt.Success {
-		t.Errorf("expected success")
+	if result := priority.Tick(ctx); result != bt.Success {
+		t.Errorf("expected success, but got %v", result)
 	}
-	if priority.Tick(ctx) != bt.Success {
-		t.Errorf("expected success")
+	if result := priority.Tick(ctx); result != bt.Success {
+		t.Errorf("expected success, but got %v", result)
 	}
 }
 
 // TestCondition tests the Condition behavior.
 func TestCondition(t *testing.T) {
 	ctx := bt.NewBehaviorContext(context.Background())
-	condition := &bt.Condition{
-		Condition: func(ctx *bt.BehaviorContext) bool {
-			return true
+	condition := &bt.ConditionBehavior{
+		Condition: &bt.Condition{
+			Check: func(ctx *bt.BehaviorContext) bool {
+				return true
+			},
 		},
 	}
 	if condition.Tick(ctx) != bt.Success {
 		t.Errorf("expected success")
 	}
-	condition = &bt.Condition{
-		Condition: func(ctx *bt.BehaviorContext) bool {
-			return false
+	condition = &bt.ConditionBehavior{
+		Condition: &bt.Condition{
+			Check: func(ctx *bt.BehaviorContext) bool {
+				return false
+			},
 		},
 	}
 	if condition.Tick(ctx) != bt.Failure {
@@ -164,14 +211,18 @@ func TestCondition(t *testing.T) {
 // TestBinarySelector tests the BinarySelector behavior.
 func TestBinarySelector(t *testing.T) {
 	ctx := bt.NewBehaviorContext(context.Background())
-	success := &bt.Condition{
-		Condition: func(ctx *bt.BehaviorContext) bool {
-			return true
+	success := &bt.ConditionBehavior{
+		Condition: &bt.Condition{
+			Check: func(ctx *bt.BehaviorContext) bool {
+				return true
+			},
 		},
 	}
-	failure := &bt.Condition{
-		Condition: func(ctx *bt.BehaviorContext) bool {
-			return false
+	failure := &bt.ConditionBehavior{
+		Condition: &bt.Condition{
+			Check: func(ctx *bt.BehaviorContext) bool {
+				return false
+			},
 		},
 	}
 	binary := &bt.BinarySelector{
@@ -194,41 +245,48 @@ func TestBinarySelector(t *testing.T) {
 
 // TestSwitch tests the Switch behavior.
 func TestSwitch(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	success := &bt.ConditionBehavior{
+		Condition: &bt.Condition{
+			Check: func(ctx *bt.BehaviorContext) bool {
+				return true
+			},
+		},
+	}
+	failure := &bt.ConditionBehavior{
+		Condition: &bt.Condition{
+			Check: func(ctx *bt.BehaviorContext) bool {
+				return false
+			},
+		},
+	}
+
 	switchNode := &bt.Switch{
-		Values: map[interface{}]bt.Behavior{
-			"success": &bt.Condition{
-				Condition: func(ctx *bt.BehaviorContext) bool {
-					return true
-				},
-			},
-			"failure": &bt.Condition{
-				Condition: func(ctx *bt.BehaviorContext) bool {
-					return false
-				},
-			},
+		Key: "success",
+		Cases: map[bt.Key]bt.Behavior{
+			"success": success,
+			"failure": failure,
 		},
 		Default: &bt.Action{
 			Action: func(ctx *bt.BehaviorContext) bt.RunStatus {
 				return bt.Running
 			},
 		},
-		ValueFunc: func(ctx *bt.BehaviorContext) interface{} {
-			return ctx.Get("value")
-		},
 	}
-	if switchNode.Tick(ctx) != bt.Running {
-		t.Errorf("expected running")
-	}
-	ctx.Set("value", "success")
+
+	ctx := bt.NewBehaviorContext(context.Background())
+
 	if switchNode.Tick(ctx) != bt.Success {
 		t.Errorf("expected success")
 	}
-	ctx.Set("value", "failure")
+
+	switchNode.Key = "failure"
+
 	if switchNode.Tick(ctx) != bt.Failure {
 		t.Errorf("expected failure")
 	}
-	ctx.Set("value", "unknown")
+
+	switchNode.Key = "unknown"
+
 	if switchNode.Tick(ctx) != bt.Running {
 		t.Errorf("expected running")
 	}
