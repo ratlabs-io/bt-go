@@ -7,6 +7,22 @@ import (
 	"github.com/ratlabs-io/go-bt"
 )
 
+func alwaysFalseCondition() *bt.Condition {
+	return &bt.Condition{
+		CheckFunc: func(ctx *bt.BehaviorContext) bool {
+			return false
+		},
+	}
+}
+
+func alwaysTrueCondition() *bt.Condition {
+	return &bt.Condition{
+		CheckFunc: func(ctx *bt.BehaviorContext) bool {
+			return true
+		},
+	}
+}
+
 func alwaysSuccessAction() bt.Behavior {
 	return bt.NewAction(func(ctx *bt.BehaviorContext) bt.RunStatus {
 		ctx.Set("result", "success")
@@ -129,26 +145,25 @@ func TestPrioritySelector(t *testing.T) {
 // TestCondition tests the Condition behavior.
 func TestCondition(t *testing.T) {
 	ctx := bt.NewBehaviorContext(context.Background())
-	condition := &bt.ConditionBehavior{
-		Condition: &bt.Condition{
-			Check: func(ctx *bt.BehaviorContext) bool {
-				return true
-			},
-		},
+
+	// Case 1: condition evaluates to true
+	conditional := bt.NewConditional(
+		alwaysTrueCondition(),
+		alwaysSuccessAction())
+
+	if result := conditional.Tick(ctx); result != bt.Success {
+		t.Errorf("expected success, but got %v", result)
 	}
-	if condition.Tick(ctx) != bt.Success {
-		t.Errorf("expected success")
-	}
-	condition = &bt.ConditionBehavior{
-		Condition: &bt.Condition{
-			Check: func(ctx *bt.BehaviorContext) bool {
-				return false
-			},
-		},
-	}
-	if result := condition.Tick(ctx); result != bt.Failure {
+
+	// Case 2: condition evaluates to false
+	conditional = bt.NewConditional(
+		alwaysFalseCondition(),
+		alwaysFailureAction())
+
+	if result := conditional.Tick(ctx); result != bt.Failure {
 		t.Errorf("expected failure, but got %v", result)
 	}
+
 }
 
 // TestBinarySelector tests the BinarySelector behavior.
