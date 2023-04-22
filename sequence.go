@@ -1,14 +1,19 @@
 package bt
 
-// SequenceNode represents a behavior tree node that processes its children in sequence until one fails or is running.
-type SequenceNode struct {
-	Composite
+// Sequence represents a behavior tree node that processes its children in sequence until one fails or is running.
+type Sequence struct {
+	Children          []Behavior
 	runningChildIndex int
+}
+
+// GetChildren returns the children of the SequenceNode.
+func (s *Sequence) GetChildren() []Behavior {
+	return s.Children
 }
 
 // Tick iterates over the child nodes with the given BehaviorContext and returns Failure if any child fails,
 // or Running if any child is running. If all children succeed, returns Success.
-func (s *SequenceNode) Tick(ctx *BehaviorContext) RunStatus {
+func (s *Sequence) Tick(ctx *BehaviorContext) RunStatus {
 	for i, child := range s.Children {
 		status := child.Tick(ctx)
 		if status != Success {

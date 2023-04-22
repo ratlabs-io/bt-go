@@ -35,6 +35,7 @@ type Behavior interface {
 }
 
 // Composite is the base type for nodes that have children in a behavior tree.
-type Composite struct {
-	Children []Behavior
+type Composite interface {
+	Tick(*BehaviorContext) RunStatus
+	GetChildren() []Behavior
 }
