@@ -2,13 +2,16 @@ package bt
 
 // Sequence represents a behavior tree node that processes its children in sequence until one fails or is running.
 type Sequence struct {
-	Children          []Behavior
+	Composite
 	runningChildIndex int
 }
 
-// GetChildren returns the children of the SequenceNode.
-func (s *Sequence) GetChildren() []Behavior {
-	return s.Children
+// NewSequence returns a new Sequence with the given children.
+func NewSequence(children ...Behavior) *Sequence {
+	return &Sequence{
+		Composite:         Composite{Children: children},
+		runningChildIndex: -1,
+	}
 }
 
 // Tick iterates over the child nodes with the given BehaviorContext and returns Failure if any child fails,

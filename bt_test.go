@@ -41,13 +41,11 @@ func TestAction(t *testing.T) {
 // TestSequence tests the Sequence behavior.
 func TestSequence(t *testing.T) {
 	ctx := bt.NewBehaviorContext(context.Background())
-	sequence := &bt.Sequence{
-		Children: []bt.Behavior{
-			alwaysSuccessAction(),
-			alwaysFailureAction(),
-			alwaysRunningAction(),
-		},
-	}
+	sequence := bt.NewSequence(
+		alwaysSuccessAction(),
+		alwaysFailureAction(),
+		alwaysRunningAction(),
+	)
 	if result := sequence.Tick(ctx); result != bt.Failure {
 		t.Errorf("expected failure, but got %v", result)
 	}
@@ -55,13 +53,11 @@ func TestSequence(t *testing.T) {
 		t.Errorf("expected failure, but got %v", result)
 	}
 
-	sequence = &bt.Sequence{
-		Children: []bt.Behavior{
-			alwaysSuccessAction(),
-			alwaysSuccessAction(),
-			alwaysRunningAction(),
-		},
-	}
+	sequence = bt.NewSequence(
+		alwaysSuccessAction(),
+		alwaysSuccessAction(),
+		alwaysRunningAction(),
+	)
 
 	if result := sequence.Tick(ctx); result != bt.Running {
 		t.Errorf("expected running, but got %v", result)
@@ -74,13 +70,11 @@ func TestSequence(t *testing.T) {
 		t.Errorf("expected running, but got %v", result)
 	}
 
-	sequence = &bt.Sequence{
-		Children: []bt.Behavior{
-			alwaysSuccessAction(),
-			alwaysSuccessAction(),
-			alwaysSuccessAction(),
-		},
-	}
+	sequence = bt.NewSequence(
+		alwaysSuccessAction(),
+		alwaysSuccessAction(),
+		alwaysSuccessAction(),
+	)
 
 	ctx.Set("running", false)
 	if result := sequence.Tick(ctx); result != bt.Success {
@@ -91,32 +85,27 @@ func TestSequence(t *testing.T) {
 // TestSelector tests the Selector behavior.
 func TestSelector(t *testing.T) {
 	ctx := bt.NewBehaviorContext(context.Background())
-	selector := &bt.Selector{
-		Children: []bt.Behavior{
-			alwaysFailureAction(),
-			alwaysFailureAction(),
-		},
-	}
+	selector := bt.NewSelector(
+		alwaysFailureAction(),
+		alwaysFailureAction(),
+	)
+
 	if result := selector.Tick(ctx); result != bt.Failure {
 		t.Errorf("expected failue, but got %v", result)
 	}
 
-	selector = &bt.Selector{
-		Children: []bt.Behavior{
-			alwaysFailureAction(),
-			alwaysRunningAction(),
-		},
-	}
+	selector = bt.NewSelector(
+		alwaysFailureAction(),
+		alwaysRunningAction(),
+	)
 	if result := selector.Tick(ctx); result != bt.Running {
 		t.Errorf("expected running, but got %v", result)
 	}
 
-	selector = &bt.Selector{
-		Children: []bt.Behavior{
-			alwaysFailureAction(),
-			alwaysSuccessAction(),
-		},
-	}
+	selector = bt.NewSelector(
+		alwaysFailureAction(),
+		alwaysSuccessAction(),
+	)
 	if result := selector.Tick(ctx); result != bt.Success {
 		t.Errorf("expected success, but got %v", result)
 	}
@@ -125,12 +114,10 @@ func TestSelector(t *testing.T) {
 // TestPrioritySelector tests the PrioritySelector behavior.
 func TestPrioritySelector(t *testing.T) {
 	ctx := bt.NewBehaviorContext(context.Background())
-	priority := &bt.PrioritySelector{
-		Children: []bt.Behavior{
-			alwaysFailureAction(),
-			alwaysSuccessAction(),
-		},
-	}
+	priority := bt.NewPrioritySelector(
+		alwaysFailureAction(),
+		alwaysSuccessAction(),
+	)
 	if result := priority.Tick(ctx); result != bt.Success {
 		t.Errorf("expected success, but got %v", result)
 	}

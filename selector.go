@@ -2,13 +2,16 @@ package bt
 
 // Selector represents a behavior tree node that selects the first child that succeeds or is running.
 type Selector struct {
-	Children          []Behavior
+	Composite
 	runningChildIndex int
 }
 
-// GetChildren returns the children of the Selector.
-func (s *Selector) GetChildren() []Behavior {
-	return s.Children
+// NewSelector returns a new Selector with the given children.
+func NewSelector(children ...Behavior) *Selector {
+	return &Selector{
+		Composite:         Composite{Children: children},
+		runningChildIndex: -1,
+	}
 }
 
 // Tick iterates over the child nodes with the given BehaviorContext and returns the first non-Failure status encountered.

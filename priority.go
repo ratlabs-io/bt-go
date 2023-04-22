@@ -2,13 +2,16 @@ package bt
 
 // PrioritySelector represents a behavior tree node that selects the first child that succeeds, and returns Failure if none succeed.
 type PrioritySelector struct {
-	Children          []Behavior
+	Composite
 	runningChildIndex int
 }
 
-// GetChildren returns the children of the PrioritySelector.
-func (s *PrioritySelector) GetChildren() []Behavior {
-	return s.Children
+// NewPrioritySelector returns a new PrioritySelector with the given children.
+func NewPrioritySelector(children ...Behavior) *PrioritySelector {
+	return &PrioritySelector{
+		Composite:         Composite{Children: children},
+		runningChildIndex: -1,
+	}
 }
 
 // Tick iterates over the child nodes with the given BehaviorContext and returns the first Success status encountered.
