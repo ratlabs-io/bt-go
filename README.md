@@ -74,12 +74,12 @@ ctx.Set("my_prop_b", "World")
 // Retrieve properties from the behavior context
 valueA, ok := ctx.Get("my_prop_a")
 if ok {
-    fmt.Println(valueA.(string)) // Output: Hello
+  fmt.Println(valueA.(string)) // Output: Hello
 }
 
 valueB, ok := ctx.Get("my_prop_b")
 if ok {
-    fmt.Println(valueB.(string)) // Output: World
+  fmt.Println(valueB.(string)) // Output: World
 }
 ```
 
@@ -90,15 +90,15 @@ In the context of a behavior tree, an Action represents a node that performs a s
 ```go
 // Create an action that increments a counter in the behavior context
 incrementCounter := NewAction(func(ctx *BehaviorContext) RunStatus {
-    counter, ok := ctx.Get("counter")
-    if !ok {
-        return Failure
-    }
+  counter, ok := ctx.Get("counter")
+  if !ok {
+      return Failure
+  }
 
-    // Increment the counter
-    ctx.Set("counter", counter.(int)+1)
+  // Increment the counter
+  ctx.Set("counter", counter.(int)+1)
 
-    return Success
+  return Success
 })
 ```
 
@@ -141,14 +141,14 @@ The Conditional is a behavior tree node that conditionally executes an action ba
 // Create a conditional node with the condition and action
 conditionalNode := NewConditional(
   NewCondition(func(ctx *BehaviorContext) bool {
-		// Perform some condition check
-		result, _ := ctx.Get("is_ready")
-		return result.(bool)
-	}),
+    // Perform some condition check
+    result, _ := ctx.Get("is_ready")
+    return result.(bool)
+  }),
   NewAction(func(ctx *BehaviorContext) RunStatus {
-      // Perform some action
-      return Success
-  })
+    // Perform some action
+    return Success
+  }),
 )
 
 // Create a behavior context
@@ -158,7 +158,7 @@ ctx := NewBehaviorContext(context.Background())
 ctx.Set("is_ready", true)
 
 // Execute the node
-status := selector.Tick(ctx)
+status := conditionalNode.Tick(ctx)
 
 fmt.Println(status)
 ```
@@ -275,23 +275,23 @@ The Switch is a behavior tree node that selects one of multiple child nodes base
 ```go
 // Define a key function
 keyFunc := func(ctx *BehaviorContext) string {
-    // Perform some logic to determine the key
-    key, _ := ctx.Get("condition_key")
-    return key.(string)
+  // Perform some logic to determine the key
+  key, _ := ctx.Get("condition_key")
+  return key.(string)
 }
 
 // Create child behavior nodes
 case1Behavior := NewAction(func(ctx *BehaviorContext) RunStatus {
-    // Perform action for case 1
-    return Success
+  // Perform action for case 1
+  return Success
 })
 case2Behavior := NewAction(func(ctx *BehaviorContext) RunStatus {
-    // Perform action for case 2
-    return Success
+  // Perform action for case 2
+  return Success
 })
 defaultBehavior := NewAction(func(ctx *BehaviorContext) RunStatus {
-    // Perform default action
-    return Success
+  // Perform default action
+  return Success
 })
 
 // Create cases map with key-behavior pairs
