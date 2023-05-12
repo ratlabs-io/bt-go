@@ -36,3 +36,10 @@ func (bc *BehaviorContext) Get(key interface{}) (value interface{}, ok bool) {
 	value, ok = bc.ContextData[key]
 	return
 }
+
+// Delete removes the value from the BehaviorContext for the given key.
+func (bc *BehaviorContext) Delete(key interface{}) {
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+	delete(bc.ContextData, key)
+}
