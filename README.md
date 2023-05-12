@@ -270,4 +270,49 @@ fmt.Println(status)
 
 ## Switch
 
+The Switch is a behavior tree node that selects one of multiple child nodes based on a key returned by a key function. It consists of a KeyFunc type, which is a function that takes a BehaviorContext and returns a string key. The Switch node also has a map of cases, where each key in the map corresponds to a specific behavior node. If the key returned by the KeyFunc matches a key in the cases map, the corresponding behavior node is executed. If no match is found and a default behavior is provided, it is executed. If no match is found and no default behavior is provided, the Switch node returns failure.
+
+```go
+// Define a key function
+keyFunc := func(ctx *BehaviorContext) string {
+    // Perform some logic to determine the key
+    key, _ := ctx.Get("condition_key")
+    return key.(string)
+}
+
+// Create child behavior nodes
+case1Behavior := NewAction(func(ctx *BehaviorContext) RunStatus {
+    // Perform action for case 1
+    return Success
+})
+case2Behavior := NewAction(func(ctx *BehaviorContext) RunStatus {
+    // Perform action for case 2
+    return Success
+})
+defaultBehavior := NewAction(func(ctx *BehaviorContext) RunStatus {
+    // Perform default action
+    return Success
+})
+
+// Create cases map with key-behavior pairs
+cases := map[string]Behavior{
+    "case1": case1Behavior,
+    "case2": case2Behavior,
+}
+
+// Create a switch node with the key function, cases, and default behavior
+switchNode := NewSwitch(keyFunc, cases, defaultBehavior)
+
+// Create a behavior context
+ctx := NewBehaviorContext(context.Background())
+
+// Set the condition key in the context
+ctx.Set("condition_key", "case2")
+
+// Execute the switch node
+status := switchNode.Tick(ctx)
+
+fmt.Println(status)
+```
+
 ## TreeRunner
