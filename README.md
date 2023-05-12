@@ -169,46 +169,104 @@ The BinarySelector is a behavior tree node that conditionally executes one of tw
 
 ```go
 // Create a condition node
-	conditionNode := NewCondition(func(ctx *BehaviorContext) bool {
-		// Perform some condition check
-		result, _ := ctx.Get("is_ready")
-		return result.(bool)
-	})
+conditionNode := NewCondition(func(ctx *BehaviorContext) bool {
+  // Perform some condition check
+  result, _ := ctx.Get("is_ready")
+  return result.(bool)
+})
 
-	// Create an action node for the true branch
-	trueActionNode := NewAction(func(ctx *BehaviorContext) RunStatus {
-		// Perform some action for the true branch
-		return Success
-	})
+// Create an action node for the true branch
+trueActionNode := NewAction(func(ctx *BehaviorContext) RunStatus {
+  // Perform some action for the true branch
+  return Success
+})
 
-	// Create an action node for the false branch
-	falseActionNode := NewAction(func(ctx *BehaviorContext) RunStatus {
-		// Perform some action for the false branch
-		return Failure
-	})
+// Create an action node for the false branch
+falseActionNode := NewAction(func(ctx *BehaviorContext) RunStatus {
+  // Perform some action for the false branch
+  return Failure
+})
 
-	// Create a binary selector node with the condition and action nodes
-	binarySelectorNode := NewBinarySelector(
-		conditionNode,
-		trueActionNode,
-		falseActionNode,
-	)
+// Create a binary selector node with the condition and action nodes
+binarySelectorNode := NewBinarySelector(
+  conditionNode,
+  trueActionNode,
+  falseActionNode,
+)
 
-	// Create a behavior context
-	ctx := NewBehaviorContext(context.Background())
+// Create a behavior context
+ctx := NewBehaviorContext(context.Background())
 
-	// Set a property in the behavior context
-	ctx.Set("is_ready", true)
+// Set a property in the behavior context
+ctx.Set("is_ready", true)
 
-	// Execute the binary selector node
-	status := binarySelectorNode.Tick(ctx)
+// Execute the binary selector node
+status := binarySelectorNode.Tick(ctx)
 
-  fmt.Println(status)
+fmt.Println(status)
 ```
 
 ## Sequence
 
+The Sequence is a behavior tree node that processes its child nodes in sequence until one fails or is running. It inherits from the Composite struct and maintains an index to track the last running child node. During execution, the Sequence node iterates over its child nodes, calling their Tick method with the provided BehaviorContext. If any child node fails, the Sequence node returns failure. If any child node is running, it returns running. Only when all child nodes succeed, the Sequence node returns success.
+
+```go
+// Create child nodes
+node1 := NewAction(func(ctx *BehaviorContext) RunStatus {
+  // Perform some action
+  return Success
+})
+node2 := NewAction(func(ctx *BehaviorContext) RunStatus {
+  // Perform some action
+  return Success
+})
+node3 := NewAction(func(ctx *BehaviorContext) RunStatus {
+  // Perform some action
+  return Success
+})
+
+// Create a sequence with the child nodes
+sequence := NewSequence(node1, node2, node3)
+
+// Create a behavior context
+ctx := NewBehaviorContext(context.Background())
+
+// Execute the sequence
+status := sequence.Tick(ctx)
+
+fmt.Println(status)
+```
+
 ## PrioritySelector
+
+The PrioritySelector is a behavior tree node that selects the first child node that succeeds and returns failure if none of the children succeed. It inherits from the Composite struct and maintains an index to track the last running child node. During execution, the PrioritySelector node iterates over its child nodes, calling their Tick method with the provided BehaviorContext. If any child node succeeds, the PrioritySelector node returns that status. If a child node is running, it returns running. If none of the child nodes succeed, it returns failure.
+
+```go
+// Create child nodes
+node1 := NewAction(func(ctx *BehaviorContext) RunStatus {
+    // Perform some action
+    return Failure
+})
+node2 := NewAction(func(ctx *BehaviorContext) RunStatus {
+    // Perform some action
+    return Success
+})
+node3 := NewAction(func(ctx *BehaviorContext) RunStatus {
+    // Perform some action
+    return Success
+})
+
+// Create a priority selector with the child nodes
+prioritySelector := NewPrioritySelector(node1, node2, node3)
+
+// Create a behavior context
+ctx := NewBehaviorContext(context.Background())
+
+// Execute the priority selector
+status := prioritySelector.Tick(ctx)
+
+fmt.Println(status)
+```
 
 ## Switch
 
