@@ -133,10 +133,6 @@ status := selector.Tick(ctx)
 fmt.Println(status)
 ```
 
-}
-
-````
-
 ## Conditional
 
 The Conditional is a behavior tree node that conditionally executes an action based on a given condition. It consists of a Condition and an Action. The Condition represents a condition node that checks a condition using a provided check function. The Action represents the action node to be executed if the condition evaluates to true. If the condition is true, the Conditional node returns the result of executing the action; otherwise, it returns failure.
@@ -164,7 +160,7 @@ ctx.Set("is_ready", true)
 status := selector.Tick(ctx)
 
 fmt.Println(status)
-````
+```
 
 ## BinarySelector
 
