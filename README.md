@@ -141,9 +141,10 @@ The Conditional is a behavior tree node that conditionally executes an action ba
 // Create a conditional node with the condition and action
 conditionalNode := NewConditional(
   NewCondition(func(ctx *BehaviorContext) bool {
-    // Perform some condition check
-    return ctx.Get("is_ready").(bool)
-  }),
+		// Perform some condition check
+		result, _ := ctx.Get("is_ready")
+		return result.(bool)
+	}),
   NewAction(func(ctx *BehaviorContext) RunStatus {
       // Perform some action
       return Success
@@ -163,6 +164,47 @@ fmt.Println(status)
 ```
 
 ## BinarySelector
+
+The BinarySelector is a behavior tree node that conditionally executes one of two child nodes based on a condition. It consists of a Condition node, an IfTrue node, and an IfFalse node. The Condition node is evaluated, and if it returns success, the IfTrue node is executed. Otherwise, the IfFalse node is executed. The BinarySelector allows for branching behavior in the behavior tree based on the outcome of the condition.
+
+```go
+// Create a condition node
+	conditionNode := NewCondition(func(ctx *BehaviorContext) bool {
+		// Perform some condition check
+		result, _ := ctx.Get("is_ready")
+		return result.(bool)
+	})
+
+	// Create an action node for the true branch
+	trueActionNode := NewAction(func(ctx *BehaviorContext) RunStatus {
+		// Perform some action for the true branch
+		return Success
+	})
+
+	// Create an action node for the false branch
+	falseActionNode := NewAction(func(ctx *BehaviorContext) RunStatus {
+		// Perform some action for the false branch
+		return Failure
+	})
+
+	// Create a binary selector node with the condition and action nodes
+	binarySelectorNode := NewBinarySelector(
+		conditionNode,
+		trueActionNode,
+		falseActionNode,
+	)
+
+	// Create a behavior context
+	ctx := NewBehaviorContext(context.Background())
+
+	// Set a property in the behavior context
+	ctx.Set("is_ready", true)
+
+	// Execute the binary selector node
+	status := binarySelectorNode.Tick(ctx)
+
+  fmt.Println(status)
+```
 
 ## Sequence
 
