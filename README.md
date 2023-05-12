@@ -316,3 +316,28 @@ fmt.Println(status)
 ```
 
 ## TreeRunner
+
+The TreeRunner is a utility that runs a behavior tree with a specified tick rate. It takes a behavior tree as input and provides a Run method to execute the tree continuously until the provided behavior context's context is done. The tree is ticked repeatedly within a loop, allowing the behavior tree to make progress over time.
+
+```go
+// Create the behavior tree
+rootNode := NewSequence(
+  NewAction(func(ctx *BehaviorContext) RunStatus {
+    // Perform some action
+    return Success
+  }),
+  NewAction(func(ctx *BehaviorContext) RunStatus {
+    // Perform some other action
+    return Success
+  }),
+)
+
+// Create a behavior context
+ctx := NewBehaviorContext(context.Background())
+
+// Create a tree runner with the behavior tree
+treeRunner := NewTreeRunner(rootNode)
+
+// Run the behavior tree until the context is done
+treeRunner.Run(ctx)
+```
