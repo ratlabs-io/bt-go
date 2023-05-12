@@ -104,7 +104,67 @@ incrementCounter := NewAction(func(ctx *BehaviorContext) RunStatus {
 
 ## Selector
 
+The Selector is a behavior tree node that represents a selector. It iterates over its child nodes and returns the first non-failure status encountered. If a child node succeeds, the selector returns success. If a child node is running, the selector returns running. If all child nodes fail, the selector returns failure. The Selector struct extends the Composite struct and maintains an index to keep track of the last running child node.
+
+```go
+
+// Create a selector with the child nodes
+selector := NewSelector(
+  NewAction(func(ctx *BehaviorContext) RunStatus {
+    // Perform some action
+    return Success
+  }),
+  NewAction(func(ctx *BehaviorContext) RunStatus {
+      // Perform some action
+      return Success
+  }),
+  NewAction(func(ctx *BehaviorContext) RunStatus {
+      // Perform some action
+      return Success
+  })
+)
+
+// Create a behavior context
+ctx := NewBehaviorContext(context.Background())
+
+// Execute the selector
+status := selector.Tick(ctx)
+
+fmt.Println(status)
+```
+
+}
+
+````
+
 ## Conditional
+
+The Conditional is a behavior tree node that conditionally executes an action based on a given condition. It consists of a Condition and an Action. The Condition represents a condition node that checks a condition using a provided check function. The Action represents the action node to be executed if the condition evaluates to true. If the condition is true, the Conditional node returns the result of executing the action; otherwise, it returns failure.
+
+```go
+// Create a conditional node with the condition and action
+conditionalNode := NewConditional(
+  NewCondition(func(ctx *BehaviorContext) bool {
+    // Perform some condition check
+    return ctx.Get("is_ready").(bool)
+  }),
+  NewAction(func(ctx *BehaviorContext) RunStatus {
+      // Perform some action
+      return Success
+  })
+)
+
+// Create a behavior context
+ctx := NewBehaviorContext(context.Background())
+
+// Set a property in the behavior context
+ctx.Set("is_ready", true)
+
+// Execute the node
+status := selector.Tick(ctx)
+
+fmt.Println(status)
+````
 
 ## BinarySelector
 
