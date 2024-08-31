@@ -16,7 +16,7 @@ func NewSequence(children ...Behavior) *Sequence {
 
 // Tick iterates over the child nodes with the given BehaviorContext and returns Failure if any child fails,
 // or Running if any child is running. If all children succeed, returns Success.
-func (s *Sequence) Tick(ctx *BehaviorContext) RunStatus {
+func (s *Sequence) Tick(ctx BehaviorContext) RunStatus {
 	for i, child := range s.Children {
 		status := child.Tick(ctx)
 		if status != Success {
@@ -28,5 +28,6 @@ func (s *Sequence) Tick(ctx *BehaviorContext) RunStatus {
 			return status
 		}
 	}
+	s.runningChildIndex = -1
 	return Success
 }

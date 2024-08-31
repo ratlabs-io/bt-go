@@ -13,10 +13,10 @@ func NewTreeRunner(tree Behavior) *TreeRunner {
 }
 
 // Run runs the behavior tree until the context is done.
-func (tr *TreeRunner) Run(ctx *BehaviorContext) {
+func (tr *TreeRunner) Run(ctx BehaviorContext) {
 	for {
 		select {
-		case <-ctx.Ctx.Done():
+		case <-ctx.(*behaviorContextImpl).Ctx.Done():
 			return
 		default:
 			tr.tree.Tick(ctx)

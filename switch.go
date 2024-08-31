@@ -1,7 +1,7 @@
 package bt
 
-// KeyFunc func
-type KeyFunc func(ctx *BehaviorContext) string
+// KeyFunc is a function type that takes a BehaviorContext and returns a string key.
+type KeyFunc func(ctx BehaviorContext) string
 
 // Switch represents a behavior tree node that selects one of multiple child nodes based on a key.
 type Switch struct {
@@ -19,8 +19,8 @@ func NewSwitch(keyFunc KeyFunc, cases map[string]Behavior, defaultBehavior Behav
 	}
 }
 
-// Tick updates the behavior's state based on the given context.
-func (s *Switch) Tick(ctx *BehaviorContext) RunStatus {
+// Tick updates the behavior's state based on the given BehaviorContext.
+func (s *Switch) Tick(ctx BehaviorContext) RunStatus {
 	key := s.KeyFunc(ctx)
 	if behavior, ok := s.Cases[key]; ok {
 		return behavior.Tick(ctx)

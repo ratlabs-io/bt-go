@@ -15,7 +15,7 @@ const (
 	Running
 )
 
-// To String method for RunStatus
+// ToString method for RunStatus
 func (rs RunStatus) String() string {
 	switch rs {
 	case Success:
@@ -31,7 +31,7 @@ func (rs RunStatus) String() string {
 
 // Behavior defines the interface for all behavior tree nodes.
 type Behavior interface {
-	Tick(*BehaviorContext) RunStatus
+	Tick(ctx BehaviorContext) RunStatus
 }
 
 // Composite is the base type for nodes that have children in a behavior tree.

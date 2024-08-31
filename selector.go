@@ -15,7 +15,7 @@ func NewSelector(children ...Behavior) *Selector {
 }
 
 // Tick iterates over the child nodes with the given BehaviorContext and returns the first non-Failure status encountered.
-func (s *Selector) Tick(ctx *BehaviorContext) RunStatus {
+func (s *Selector) Tick(ctx BehaviorContext) RunStatus {
 	// Iterate over child nodes
 	for i, child := range s.Children {
 		// Call Tick method of child node and handle return value

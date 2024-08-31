@@ -27,7 +27,7 @@ import (
 func main() {
 	// Create a new sequence with two actions
 	root := NewSequence(
-		NewAction(func(ctx *BehaviorContext) RunStatus {
+		NewAction(func(ctx BehaviorContext) RunStatus {
 			hello, ok := ctx.Get("my_prop_a")
 			if !ok {
 				return Failure
@@ -37,7 +37,7 @@ func main() {
 
 			return Success
 		}),
-		NewAction(func(ctx *BehaviorContext) RunStatus {
+		NewAction(func(ctx BehaviorContext) RunStatus {
 			world, ok := ctx.Get("my_prop_b")
 			if !ok {
 				return Failure
@@ -89,7 +89,7 @@ In the context of a behavior tree, an Action represents a node that performs a s
 
 ```go
 // Create an action that increments a counter in the behavior context
-incrementCounter := NewAction(func(ctx *BehaviorContext) RunStatus {
+incrementCounter := NewAction(func(ctx BehaviorContext) RunStatus {
   counter, ok := ctx.Get("counter")
   if !ok {
       return Failure
@@ -110,15 +110,15 @@ The Selector is a behavior tree node that represents a selector. It iterates ove
 
 // Create a selector with the child nodes
 selector := NewSelector(
-  NewAction(func(ctx *BehaviorContext) RunStatus {
+  NewAction(func(ctx BehaviorContext) RunStatus {
     // Perform some action
     return Success
   }),
-  NewAction(func(ctx *BehaviorContext) RunStatus {
+  NewAction(func(ctx BehaviorContext) RunStatus {
       // Perform some action
       return Success
   }),
-  NewAction(func(ctx *BehaviorContext) RunStatus {
+  NewAction(func(ctx BehaviorContext) RunStatus {
       // Perform some action
       return Success
   })
@@ -140,12 +140,12 @@ The Conditional is a behavior tree node that conditionally executes an action ba
 ```go
 // Create a conditional node with the condition and action
 conditionalNode := NewConditional(
-  NewCondition(func(ctx *BehaviorContext) bool {
+  NewCondition(func(ctx BehaviorContext) bool {
     // Perform some condition check
     result, _ := ctx.Get("is_ready")
     return result.(bool)
   }),
-  NewAction(func(ctx *BehaviorContext) RunStatus {
+  NewAction(func(ctx BehaviorContext) RunStatus {
     // Perform some action
     return Success
   }),
@@ -169,20 +169,20 @@ The BinarySelector is a behavior tree node that conditionally executes one of tw
 
 ```go
 // Create a condition node
-conditionNode := NewCondition(func(ctx *BehaviorContext) bool {
+conditionNode := NewCondition(func(ctx BehaviorContext) bool {
   // Perform some condition check
   result, _ := ctx.Get("is_ready")
   return result.(bool)
 })
 
 // Create an action node for the true branch
-trueActionNode := NewAction(func(ctx *BehaviorContext) RunStatus {
+trueActionNode := NewAction(func(ctx BehaviorContext) RunStatus {
   // Perform some action for the true branch
   return Success
 })
 
 // Create an action node for the false branch
-falseActionNode := NewAction(func(ctx *BehaviorContext) RunStatus {
+falseActionNode := NewAction(func(ctx BehaviorContext) RunStatus {
   // Perform some action for the false branch
   return Failure
 })
@@ -212,15 +212,15 @@ The Sequence is a behavior tree node that processes its child nodes in sequence 
 
 ```go
 // Create child nodes
-node1 := NewAction(func(ctx *BehaviorContext) RunStatus {
+node1 := NewAction(func(ctx BehaviorContext) RunStatus {
   // Perform some action
   return Success
 })
-node2 := NewAction(func(ctx *BehaviorContext) RunStatus {
+node2 := NewAction(func(ctx BehaviorContext) RunStatus {
   // Perform some action
   return Success
 })
-node3 := NewAction(func(ctx *BehaviorContext) RunStatus {
+node3 := NewAction(func(ctx BehaviorContext) RunStatus {
   // Perform some action
   return Success
 })
@@ -243,15 +243,15 @@ The PrioritySelector is a behavior tree node that selects the first child node t
 
 ```go
 // Create child nodes
-node1 := NewAction(func(ctx *BehaviorContext) RunStatus {
+node1 := NewAction(func(ctx BehaviorContext) RunStatus {
     // Perform some action
     return Failure
 })
-node2 := NewAction(func(ctx *BehaviorContext) RunStatus {
+node2 := NewAction(func(ctx BehaviorContext) RunStatus {
     // Perform some action
     return Success
 })
-node3 := NewAction(func(ctx *BehaviorContext) RunStatus {
+node3 := NewAction(func(ctx BehaviorContext) RunStatus {
     // Perform some action
     return Success
 })
@@ -281,15 +281,15 @@ keyFunc := func(ctx *BehaviorContext) string {
 }
 
 // Create child behavior nodes
-case1Behavior := NewAction(func(ctx *BehaviorContext) RunStatus {
+case1Behavior := NewAction(func(ctx BehaviorContext) RunStatus {
   // Perform action for case 1
   return Success
 })
-case2Behavior := NewAction(func(ctx *BehaviorContext) RunStatus {
+case2Behavior := NewAction(func(ctx BehaviorContext) RunStatus {
   // Perform action for case 2
   return Success
 })
-defaultBehavior := NewAction(func(ctx *BehaviorContext) RunStatus {
+defaultBehavior := NewAction(func(ctx BehaviorContext) RunStatus {
   // Perform default action
   return Success
 })
@@ -322,11 +322,11 @@ The TreeRunner is a utility that runs a behavior tree with a specified tick rate
 ```go
 // Create the behavior tree
 rootNode := NewSequence(
-  NewAction(func(ctx *BehaviorContext) RunStatus {
+  NewAction(func(ctx BehaviorContext) RunStatus {
     // Perform some action
     return Success
   }),
-  NewAction(func(ctx *BehaviorContext) RunStatus {
+  NewAction(func(ctx BehaviorContext) RunStatus {
     // Perform some other action
     return Success
   }),

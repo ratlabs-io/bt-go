@@ -7,6 +7,7 @@ type BinarySelector struct {
 	IfFalse   Behavior
 }
 
+// NewBinarySelector creates a new BinarySelector with the given condition, true branch, and false branch.
 func NewBinarySelector(condition Behavior, ifTrue Behavior, ifFalse Behavior) *BinarySelector {
 	return &BinarySelector{
 		Condition: condition,
@@ -16,7 +17,7 @@ func NewBinarySelector(condition Behavior, ifTrue Behavior, ifFalse Behavior) *B
 }
 
 // Tick evaluates the condition and executes the appropriate child node based on the given BehaviorContext.
-func (node *BinarySelector) Tick(ctx *BehaviorContext) RunStatus {
+func (node *BinarySelector) Tick(ctx BehaviorContext) RunStatus {
 	if node.Condition.Tick(ctx) == Success {
 		return node.IfTrue.Tick(ctx)
 	}

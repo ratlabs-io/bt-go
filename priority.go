@@ -15,7 +15,7 @@ func NewPrioritySelector(children ...Behavior) *PrioritySelector {
 }
 
 // Tick iterates over the child nodes with the given BehaviorContext and returns the first Success status encountered.
-func (s *PrioritySelector) Tick(ctx *BehaviorContext) RunStatus {
+func (s *PrioritySelector) Tick(ctx BehaviorContext) RunStatus {
 	// Iterate over child nodes
 	for i := 0; i < len(s.Children); i++ {
 		child := s.Children[i]

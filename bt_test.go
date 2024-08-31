@@ -8,37 +8,33 @@ import (
 )
 
 func alwaysFalseCondition() *bt.Condition {
-	return &bt.Condition{
-		CheckFunc: func(ctx *bt.BehaviorContext) bool {
-			return false
-		},
-	}
+	return bt.NewCondition(func(ctx bt.BehaviorContext) bool {
+		return false
+	})
 }
 
 func alwaysTrueCondition() *bt.Condition {
-	return &bt.Condition{
-		CheckFunc: func(ctx *bt.BehaviorContext) bool {
-			return true
-		},
-	}
+	return bt.NewCondition(func(ctx bt.BehaviorContext) bool {
+		return true
+	})
 }
 
 func alwaysSuccessAction() bt.Behavior {
-	return bt.NewAction(func(ctx *bt.BehaviorContext) bt.RunStatus {
+	return bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
 		ctx.Set("result", "success")
 		return bt.Success
 	})
 }
 
 func alwaysFailureAction() bt.Behavior {
-	return bt.NewAction(func(ctx *bt.BehaviorContext) bt.RunStatus {
+	return bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
 		ctx.Set("result", "failure")
 		return bt.Failure
 	})
 }
 
 func alwaysRunningAction() bt.Behavior {
-	return bt.NewAction(func(ctx *bt.BehaviorContext) bt.RunStatus {
+	return bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
 		return bt.Running
 	})
 }
@@ -107,7 +103,7 @@ func TestSelector(t *testing.T) {
 	)
 
 	if result := selector.Tick(ctx); result != bt.Failure {
-		t.Errorf("expected failue, but got %v", result)
+		t.Errorf("expected failure, but got %v", result)
 	}
 
 	selector = bt.NewSelector(
@@ -169,19 +165,19 @@ func TestCondition(t *testing.T) {
 // TestBinarySelector tests the BinarySelector behavior.
 func TestBinarySelector(t *testing.T) {
 	ctx := bt.NewBehaviorContext(context.Background())
-	binary := &bt.BinarySelector{
-		Condition: alwaysSuccessAction(),
-		IfTrue:    alwaysSuccessAction(),
-		IfFalse:   alwaysFailureAction(),
-	}
+	binary := bt.NewBinarySelector(
+		alwaysSuccessAction(),
+		alwaysSuccessAction(),
+		alwaysFailureAction(),
+	)
 	if binary.Tick(ctx) != bt.Success {
 		t.Errorf("expected success")
 	}
-	binary = &bt.BinarySelector{
-		Condition: alwaysFailureAction(),
-		IfTrue:    alwaysSuccessAction(),
-		IfFalse:   alwaysFailureAction(),
-	}
+	binary = bt.NewBinarySelector(
+		alwaysFailureAction(),
+		alwaysSuccessAction(),
+		alwaysFailureAction(),
+	)
 	if result := binary.Tick(ctx); result != bt.Failure {
 		t.Errorf("expected failure, but got %v", result)
 	}
@@ -189,17 +185,17 @@ func TestBinarySelector(t *testing.T) {
 
 // TestSwitch tests the Switch behavior.
 func TestSwitch(t *testing.T) {
-	switchNode := &bt.Switch{
-		KeyFunc: func(ctx *bt.BehaviorContext) string {
+	switchNode := bt.NewSwitch(
+		func(ctx bt.BehaviorContext) string {
 			key, _ := ctx.Get("key")
 			return key.(string)
 		},
-		Cases: map[string]bt.Behavior{
+		map[string]bt.Behavior{
 			"success": alwaysSuccessAction(),
 			"failure": alwaysFailureAction(),
 		},
-		Default: alwaysRunningAction(),
-	}
+		alwaysRunningAction(),
+	)
 
 	ctx := bt.NewBehaviorContext(context.Background())
 
