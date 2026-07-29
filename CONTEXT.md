@@ -104,8 +104,12 @@ Schedules ticks until `env.Context()` is done; Halts the tree on cancel. Does no
 
 ## Open / next evaluation targets
 
-Prior open list closed in the Halt/observation/typed-key pass. Fresh scrutiny later if needed:
+Closed in **v1.6.0**: complete Halt graph, typed keys, Instrument, godoc examples, flat package reconfirm.
 
-- Whether **Instrument** should support custom/third-party node types beyond wrap-as-is
+Worth a fresh pass (not decided as wrong—just next scrutiny):
+
+- Whether **Instrument** should deep-support custom/third-party node types beyond wrap-as-is
 - Subtree blackboard scopes as a first-class API (hierarchy exists; patterns are user-side)
 - Concurrent Parallel cancel of in-flight child Ticks (today: join then Halt residual only)
+- Further composites/decorators (decorators catalog, time/cooldown nodes, subtree include) if product needs them
+- Whether TreeRunner should expose tick middleware / shared observation without Instrument rebuild
