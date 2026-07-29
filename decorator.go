@@ -22,6 +22,11 @@ func (d *BaseDecorator) GetChild() Behavior {
 	return d.Child
 }
 
+// HaltChild aborts the child if it is Haltable. Embedded types may call this from Halt.
+func (d *BaseDecorator) HaltChild(env Env) {
+	Halt(env, d.Child)
+}
+
 // Inverter swaps Success ↔ Failure. Running is unchanged.
 type Inverter struct {
 	BaseDecorator
@@ -47,6 +52,11 @@ func (i *Inverter) Tick(env Env) RunStatus {
 	}
 }
 
+// Halt aborts the child.
+func (i *Inverter) Halt(env Env) {
+	i.HaltChild(env)
+}
+
 // Repeater runs its child a fixed number of successful times.
 // Each Tick advances at most one successful child completion.
 // Failure from the child aborts and resets the counter.
@@ -65,6 +75,11 @@ func NewRepeater(child Behavior, count int) *Repeater {
 		Count:         count,
 		infinite:      count <= 0,
 	}
+}
+
+// Reset clears the success counter so the next Tick starts a fresh series.
+func (r *Repeater) Reset() {
+	r.counter = 0
 }
 
 // Tick executes the child and tracks successful completions toward Count.
@@ -95,6 +110,12 @@ func (r *Repeater) Tick(env Env) RunStatus {
 	return Success
 }
 
+// Halt resets the counter and aborts the child.
+func (r *Repeater) Halt(env Env) {
+	r.counter = 0
+	r.HaltChild(env)
+}
+
 // UntilSuccess ticks the child until it returns Success.
 // Failure and Running both yield Running from the decorator.
 type UntilSuccess struct {
@@ -117,6 +138,11 @@ func (u *UntilSuccess) Tick(env Env) RunStatus {
 	return Running
 }
 
+// Halt aborts the child.
+func (u *UntilSuccess) Halt(env Env) {
+	u.HaltChild(env)
+}
+
 // UntilFailure ticks the child until it returns Failure.
 // When the child fails, the decorator returns Success (the wait succeeded).
 type UntilFailure struct {
@@ -137,4 +163,9 @@ func (u *UntilFailure) Tick(env Env) RunStatus {
 		return Success
 	}
 	return Running
+}
+
+// Halt aborts the child.
+func (u *UntilFailure) Halt(env Env) {
+	u.HaltChild(env)
 }

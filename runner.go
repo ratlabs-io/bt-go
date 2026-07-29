@@ -55,7 +55,10 @@ func NewTreeRunner(tree Behavior, options ...RunnerOption) *TreeRunner {
 }
 
 // Run ticks the tree at the configured rate until env.Context() is cancelled.
-// It blocks until Context().Done() is closed.
+//
+// Cancellation stops scheduling further ticks and Halts the tree so Haltable
+// nodes can clean up. A Tick that is already in progress is not interrupted —
+// long-running actions should watch env.Context().Done() themselves.
 func (tr *TreeRunner) Run(env Env) {
 	ticker := time.NewTicker(tr.tickRate)
 	defer ticker.Stop()
@@ -64,14 +67,20 @@ func (tr *TreeRunner) Run(env Env) {
 	for {
 		select {
 		case <-done:
+			Halt(env, tr.tree)
 			return
 		case <-ticker.C:
+			if err := env.Context().Err(); err != nil {
+				Halt(env, tr.tree)
+				return
+			}
 			tr.dispatch(tr.tree.Tick(env))
 		}
 	}
 }
 
 // RunOnce ticks the tree once, fires the matching callback, and returns the status.
+// It does not Halt afterward (the tree may still be Running).
 func (tr *TreeRunner) RunOnce(env Env) RunStatus {
 	status := tr.tree.Tick(env)
 	tr.dispatch(status)

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ratlabs-io/bt-go/bt"
+	"github.com/ratlabs-io/bt-go"
 )
 
 func createCountingAction(counter *int, mutex *sync.Mutex, delay time.Duration, status bt.RunStatus) bt.Behavior {
@@ -176,7 +176,8 @@ func TestParallelConcurrency(t *testing.T) {
 	var counter int
 	var mu sync.Mutex
 
-	parallel := bt.NewParallel(bt.RequireAll,
+	// Concurrent variant should overlap delays.
+	parallel := bt.NewConcurrentParallel(bt.RequireAll,
 		createCountingAction(&counter, &mu, 50*time.Millisecond, bt.Success),
 		createCountingAction(&counter, &mu, 10*time.Millisecond, bt.Success),
 		createCountingAction(&counter, &mu, 30*time.Millisecond, bt.Success),
@@ -194,6 +195,34 @@ func TestParallelConcurrency(t *testing.T) {
 	}
 	if counter != 3 {
 		t.Errorf("Expected all actions to run, got counter = %d", counter)
+	}
+	if !parallel.Concurrent() {
+		t.Error("NewConcurrentParallel should report Concurrent true")
+	}
+}
+
+func TestParallelSequentialDefault(t *testing.T) {
+	env := bt.NewEnv(context.Background())
+	var order []int
+	var mu sync.Mutex
+
+	mk := func(id int) bt.Behavior {
+		return bt.NewAction(func(env bt.Env) bt.RunStatus {
+			mu.Lock()
+			order = append(order, id)
+			mu.Unlock()
+			return bt.Success
+		})
+	}
+	p := bt.NewParallel(bt.RequireAll, mk(1), mk(2), mk(3))
+	if p.Concurrent() {
+		t.Fatal("NewParallel should be sequential by default")
+	}
+	if p.Tick(env) != bt.Success {
+		t.Fatal("expected Success")
+	}
+	if len(order) != 3 || order[0] != 1 || order[1] != 2 || order[2] != 3 {
+		t.Fatalf("expected sequential order 1,2,3 got %v", order)
 	}
 }
 

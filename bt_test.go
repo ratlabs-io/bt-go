@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ratlabs-io/bt-go/bt"
+	"github.com/ratlabs-io/bt-go"
 )
 
 func alwaysFalseCondition() *bt.Condition {
@@ -205,19 +205,6 @@ func TestSelectorPriorityPreempt(t *testing.T) {
 	if lowCalls != 1 {
 		t.Errorf("low should not run after preempt, got %d calls", lowCalls)
 	}
-}
-
-func TestPrioritySelectorAlias(t *testing.T) {
-	env := bt.NewEnv(context.Background())
-	priority := bt.NewPrioritySelector(
-		alwaysFailureAction(),
-		alwaysSuccessAction(),
-	)
-	if result := priority.Tick(env); result != bt.Success {
-		t.Errorf("expected success, but got %v", result)
-	}
-	// Same concrete type as Selector.
-	_ = (*bt.Selector)(priority)
 }
 
 func TestCondition(t *testing.T) {

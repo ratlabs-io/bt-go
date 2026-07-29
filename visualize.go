@@ -156,7 +156,11 @@ func (tv *TreeVisualizer) getNodeName(node Behavior) string {
 	case *MemorySelector:
 		return "MemorySelector"
 	case *Parallel:
-		return fmt.Sprintf("Parallel(%s)", n.Policy())
+		mode := "seq"
+		if n.Concurrent() {
+			mode = "concurrent"
+		}
+		return fmt.Sprintf("Parallel(%s,%s)", n.Policy(), mode)
 	case *BinarySelector:
 		return "BinarySelector"
 	case *Switch:
@@ -169,6 +173,12 @@ func (tv *TreeVisualizer) getNodeName(node Behavior) string {
 		return "UntilSuccess"
 	case *UntilFailure:
 		return "UntilFailure"
+	case *Named:
+		return n.VisualizeNode()
+	case *Observing:
+		return "Observing"
+	case *AbortHook:
+		return "AbortHook"
 	default:
 		return typeName
 	}
@@ -180,7 +190,7 @@ func (tv *TreeVisualizer) getNodeName(node Behavior) string {
 // Prefer wrapping ticks you care about:
 //
 //	rec := bt.NewStatusRecorder()
-//	status := rec.Tick(ctx, root) // records root only
+//	status := rec.Tick(env, root) // records root only
 //
 // For full-tree status maps, wrap individual leaves or use a custom decorator.
 type StatusRecorder struct {

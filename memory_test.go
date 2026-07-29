@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ratlabs-io/bt-go/bt"
+	"github.com/ratlabs-io/bt-go"
 )
 
 func TestMemorySequenceSkipsCompletedPrefix(t *testing.T) {

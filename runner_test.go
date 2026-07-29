@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ratlabs-io/bt-go/bt"
+	"github.com/ratlabs-io/bt-go"
 )
 
 func TestTreeRunnerOptions(t *testing.T) {

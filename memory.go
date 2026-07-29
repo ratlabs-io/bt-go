@@ -7,7 +7,8 @@ package bt
 // already succeeded in this run.
 //
 // Memory is cleared when the sequence returns Success or Failure (including
-// nil-child failure). Call Reset to clear memory without ticking.
+// nil-child failure). Call Reset to clear memory without ticking; Halt aborts
+// the current child and resets.
 type MemorySequence struct {
 	Composite
 	// runningIndex is the child to resume from. 0 means start (or resume) at first.
@@ -23,6 +24,7 @@ func NewMemorySequence(children ...Behavior) *MemorySequence {
 }
 
 // Reset clears resume state so the next Tick starts at the first child.
+// It does not Halt the current child; call Halt when aborting mid-run.
 func (s *MemorySequence) Reset() {
 	s.runningIndex = 0
 }
@@ -54,13 +56,20 @@ func (s *MemorySequence) Tick(env Env) RunStatus {
 			s.runningIndex = 0
 			return Failure
 		case Success:
-			// Advance past this child; next loop iteration continues.
 			s.runningIndex = i + 1
 		}
 	}
 
 	s.runningIndex = 0
 	return Success
+}
+
+// Halt aborts the child at the resume index (if any) and resets memory.
+func (s *MemorySequence) Halt(env Env) {
+	if s.runningIndex >= 0 && s.runningIndex < len(s.Children) {
+		Halt(env, s.Children[s.runningIndex])
+	}
+	s.runningIndex = 0
 }
 
 // MemorySelector is a Selector that remembers which child was Running.
@@ -71,7 +80,7 @@ func (s *MemorySequence) Tick(env Env) RunStatus {
 //
 // If the remembered child fails, evaluation continues with later siblings only
 // (earlier ones are not re-tried until the whole selector returns Failure and
-// memory is cleared). Call Reset to clear memory without ticking.
+// memory is cleared). Call Reset to clear memory without ticking; Halt aborts.
 type MemorySelector struct {
 	Composite
 	// runningIndex is -1 when idle (start from first child), or the index to resume.
@@ -87,6 +96,7 @@ func NewMemorySelector(children ...Behavior) *MemorySelector {
 }
 
 // Reset clears resume state so the next Tick starts at the first child.
+// It does not Halt the current child; call Halt when aborting mid-run.
 func (s *MemorySelector) Reset() {
 	s.runningIndex = -1
 }
@@ -122,13 +132,19 @@ func (s *MemorySelector) Tick(env Env) RunStatus {
 			s.runningIndex = -1
 			return Success
 		case Failure:
-			// Try the next sibling; clear sticky index so we don't re-stick on fail.
+			// Child finished with Failure — no Halt. Try next sibling.
 			s.runningIndex = -1
-			// But if we continue the loop, we should not re-check earlier children.
-			// Keep start progressing by leaving runningIndex idle and continuing i+1.
 		}
 	}
 
 	s.runningIndex = -1
 	return Failure
+}
+
+// Halt aborts the remembered child (if any) and clears memory.
+func (s *MemorySelector) Halt(env Env) {
+	if s.runningIndex >= 0 && s.runningIndex < len(s.Children) {
+		Halt(env, s.Children[s.runningIndex])
+	}
+	s.runningIndex = -1
 }

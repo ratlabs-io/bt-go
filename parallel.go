@@ -36,26 +36,37 @@ func (p ParallelPolicy) String() string {
 	}
 }
 
-// Parallel ticks all children concurrently (one goroutine each) and aggregates
-// results according to policy.
+// Parallel ticks all children each call and aggregates results by policy.
 //
-// Children share the same Env. Because the blackboard is
-// thread-safe, concurrent Set/Get is safe; actions that mutate other shared
-// state must synchronize themselves.
+// By default ticks are sequential (deterministic order, same stack) — the usual
+// behavior-tree meaning of “parallel”: all children get a chance this frame.
+// Use NewConcurrentParallel for one goroutine per child.
 //
-// Every child is ticked on every Parallel.Tick — there is no “skip completed
-// children” memory. That keeps policies like SuccessOnAll correct when a child
-// can recover from Failure on a later tick.
+// Children share the same Env. Under concurrent mode the blackboard is
+// thread-safe; other shared mutable state in actions must be synchronized.
+//
+// Every child is ticked on every Parallel.Tick (no sticky completion memory).
 type Parallel struct {
 	Composite
-	policy ParallelPolicy
+	policy     ParallelPolicy
+	concurrent bool
 }
 
-// NewParallel creates a Parallel node with the given policy and children.
+// NewParallel creates a sequential Parallel node (classic BT parallel).
 func NewParallel(policy ParallelPolicy, children ...Behavior) *Parallel {
 	return &Parallel{
-		Composite: Composite{Children: children},
-		policy:    policy,
+		Composite:  Composite{Children: children},
+		policy:     policy,
+		concurrent: false,
+	}
+}
+
+// NewConcurrentParallel creates a Parallel that ticks each child in its own goroutine.
+func NewConcurrentParallel(policy ParallelPolicy, children ...Behavior) *Parallel {
+	return &Parallel{
+		Composite:  Composite{Children: children},
+		policy:     policy,
+		concurrent: true,
 	}
 }
 
@@ -64,13 +75,37 @@ func (p *Parallel) Policy() ParallelPolicy {
 	return p.policy
 }
 
-// Tick runs all children concurrently and returns the policy result.
+// Concurrent reports whether children are ticked in goroutines.
+func (p *Parallel) Concurrent() bool {
+	return p.concurrent
+}
+
+// Tick runs all children (sequentially or concurrently) and returns the policy result.
 func (p *Parallel) Tick(env Env) RunStatus {
 	n := len(p.Children)
 	if n == 0 {
 		return Success
 	}
+	if p.concurrent {
+		return p.tickConcurrent(env)
+	}
+	return p.tickSequential(env)
+}
 
+func (p *Parallel) tickSequential(env Env) RunStatus {
+	statuses := make([]RunStatus, len(p.Children))
+	for i, child := range p.Children {
+		if child == nil {
+			statuses[i] = Failure
+			continue
+		}
+		statuses[i] = child.Tick(env)
+	}
+	return evaluateParallelPolicy(p.policy, statuses)
+}
+
+func (p *Parallel) tickConcurrent(env Env) RunStatus {
+	n := len(p.Children)
 	statuses := make([]RunStatus, n)
 	var wg sync.WaitGroup
 
@@ -82,7 +117,6 @@ func (p *Parallel) Tick(env Env) RunStatus {
 		wg.Add(1)
 		go func(index int, behavior Behavior) {
 			defer wg.Done()
-			// Share the same Env so blackboard writes stay coherent.
 			statuses[index] = behavior.Tick(env)
 		}(i, child)
 	}
@@ -91,10 +125,16 @@ func (p *Parallel) Tick(env Env) RunStatus {
 	return evaluateParallelPolicy(p.policy, statuses)
 }
 
+// Halt aborts every child.
+func (p *Parallel) Halt(env Env) {
+	for _, child := range p.Children {
+		Halt(env, child)
+	}
+}
+
 func evaluateParallelPolicy(policy ParallelPolicy, statuses []RunStatus) RunStatus {
 	successCount := 0
 	failureCount := 0
-	runningCount := 0
 
 	for _, status := range statuses {
 		switch status {
@@ -102,8 +142,6 @@ func evaluateParallelPolicy(policy ParallelPolicy, statuses []RunStatus) RunStat
 			successCount++
 		case Failure:
 			failureCount++
-		case Running:
-			runningCount++
 		}
 	}
 
@@ -141,7 +179,6 @@ func evaluateParallelPolicy(policy ParallelPolicy, statuses []RunStatus) RunStat
 		return Running
 
 	default:
-		// Unknown policy: same as RequireOne.
 		if successCount > 0 {
 			return Success
 		}

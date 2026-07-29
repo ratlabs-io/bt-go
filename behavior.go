@@ -1,19 +1,25 @@
 // Package bt is a composable behavior tree library for Go.
 //
+// Import: "github.com/ratlabs-io/bt-go" (package name bt).
+//
 // A behavior tree is a hierarchy of Behavior nodes. Each tick, a node returns
 // one of Success, Failure, or Running. Leaf nodes (Action, Condition) do work;
 // composites (Sequence, Selector, Parallel, …) combine children; decorators
-// (Inverter, Repeater, …) wrap a single child.
+// (Inverter, Repeater, Named, Observing, AbortHook, …) wrap a single child.
 //
 // # Environment (Env)
 //
 // Nodes receive an Env on every Tick. Env is not a context.Context:
 //
-//   - env.Context()  — stdlib context for cancellation/deadlines only
-//   - env.Blackboard() / Set/Get — mutable agent/world state
+//   - env.Context() — stdlib context for cancellation/deadlines only
+//   - blackboard via Set/Get/GetAs — mutable agent/world state
 //
 // Put agent data on the blackboard, never in context.WithValue.
-// Trees are typically ticked by a TreeRunner or by calling Behavior.Tick directly.
+//
+// # Abort (Halt)
+//
+// When a reactive parent preempts a Running child, or TreeRunner cancels,
+// Halt is called on Haltable nodes so they can clean up (see AbortHook).
 package bt
 
 // RunStatus is the result of ticking a behavior node.

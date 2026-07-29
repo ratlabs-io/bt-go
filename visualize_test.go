@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ratlabs-io/bt-go/bt"
+	"github.com/ratlabs-io/bt-go"
 )
 
 type CustomVisualizerAction struct {
@@ -87,8 +87,15 @@ func TestTreeVisualizerParallel(t *testing.T) {
 		bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Success }),
 	)
 	result := bt.NewTreeVisualizer(p).Visualize()
-	if !strings.Contains(result, "Parallel(RequireAll)") {
-		t.Errorf("expected Parallel policy in label, got: %s", result)
+	if !strings.Contains(result, "Parallel(RequireAll,seq)") {
+		t.Errorf("expected sequential Parallel label, got: %s", result)
+	}
+	cp := bt.NewConcurrentParallel(bt.RequireOne,
+		bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Success }),
+	)
+	result = bt.NewTreeVisualizer(cp).Visualize()
+	if !strings.Contains(result, "Parallel(RequireOne,concurrent)") {
+		t.Errorf("expected concurrent Parallel label, got: %s", result)
 	}
 }
 

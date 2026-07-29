@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ratlabs-io/bt-go/bt"
+	"github.com/ratlabs-io/bt-go"
 )
 
 func main() {
