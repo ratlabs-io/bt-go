@@ -1,5 +1,13 @@
 # Changelog
 
+## [v1.6.1] — 2026-07-29
+
+### Fixed
+- `TreeVisualizer` collapses `Observing` wrappers so `InstrumentRecorder` dumps show real node statuses (Named/composites/leaves) without Observing noise.
+
+### Docs
+- CONTEXT/CLAUDE: post-v1.6.0 architecture freeze; open targets deferred until real agent pain; cooperative cancel settled.
+
 ## [v1.6.0] — 2026-07-29
 
 ### Breaking

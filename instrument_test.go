@@ -51,9 +51,14 @@ func TestInstrumentRecorderVisualize(t *testing.T) {
 		t.Fatal("expected Success")
 	}
 	out := rec.Visualize(instr)
-	if !strings.Contains(out, "Win") && !strings.Contains(out, "Observing") {
-		// Named may be under Observing wrappers; status map should be non-empty.
-		t.Log(out)
+	// Observing wrappers collapse in TreeVisualizer; real nodes keep statuses.
+	if strings.Contains(out, "Observing") {
+		t.Fatalf("Observing should be transparent in dumps, got:\n%s", out)
+	}
+	for _, want := range []string{"Win [Success]", "Fail [Failure]", "Selector [Success]"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("expected %q in dump:\n%s", want, out)
+		}
 	}
 	if len(rec.GetStatusMap()) == 0 {
 		t.Fatal("expected recorded statuses")

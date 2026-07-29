@@ -1,6 +1,6 @@
 # bt-go
 
-Composable behavior-tree library for Go agents (games AI, robotics-style control, scripts). Latest release at time of writing: **v1.6.0**. Assumed **zero external consumers** — prefer clean breaks over compatibility shims.
+Composable behavior-tree library for Go agents (games AI, robotics-style control, scripts). Latest release at time of writing: **v1.6.1**. Assumed **zero external consumers** — prefer clean breaks over compatibility shims.
 
 ## Language
 
@@ -53,10 +53,10 @@ Default `NewParallel`: tick every child this Tick, same stack, deterministic ord
 `NewConcurrentParallel`: one goroutine per child; shared Env/blackboard must stay race-safe. Same residual-Halt rule after join.
 
 **Observing**:
-Per-node tick decorator. Reports only that node’s child result.
+Per-node tick decorator. Reports the child’s status (and child pointer) to a hook. **TreeVisualizer** collapses Observing so dumps show the real child.
 
 **Instrument**:
-Deep observation: rebuilds a tree so every node tick reports to a callback (or **StatusRecorder** via `InstrumentRecorder`). Does not mutate the original tree.
+Deep observation: rebuilds a tree so every node tick reports to a callback (or **StatusRecorder** via `InstrumentRecorder`). Does not mutate the original tree. Instrumented dumps collapse Observing wrappers.
 
 **TreeRunner**:
 Schedules ticks until `env.Context()` is done; Halts the tree on cancel. Does not preempt an in-flight Tick body.
@@ -80,6 +80,8 @@ Schedules ticks until `env.Context()` is done; Halts the tree on cancel. Does no
 6. **Complete Halt graph** — all abandoning control-flow nodes track Running children and Halt them; Parallel Halts residual Running on terminal policy results. See `docs/adr/0006-halt-across-control-flow.md`.
 7. **Typed keys are additive** — `Key[T]` + helpers; string keys remain first-class. See `docs/adr/0007-typed-keys-additive.md`.
 8. **Deep observation is Instrument** — not a second Env channel; per-node Observing stays. See `docs/adr/0008-instrument-deep-observation.md`.
+9. **Cooperative cancel only** — neither TreeRunner nor Concurrent Parallel interrupts an in-flight `Tick` body. Long work polls `env.Context().Done()`; residual Parallel Running is Halted after join. No mid-Tick forced preemption.
+10. **Architecture surface freeze (post-v1.6.0)** — do not add catalog nodes, runner middleware, first-class blackboard scope decorators, or Instrument third-party deep-rebuild until a real agent forces the shape twice. Prefer using the library over growing it.
 
 ## Example dialogue
 
@@ -106,10 +108,22 @@ Schedules ticks until `env.Context()` is done; Halts the tree on cancel. Does no
 
 Closed in **v1.6.0**: complete Halt graph, typed keys, Instrument, godoc examples, flat package reconfirm.
 
-Worth a fresh pass (not decided as wrong—just next scrutiny):
+### Deferred (post-v1.6.0 eval — not wrong, no product need yet)
 
-- Whether **Instrument** should deep-support custom/third-party node types beyond wrap-as-is
-- Subtree blackboard scopes as a first-class API (hierarchy exists; patterns are user-side)
-- Concurrent Parallel cancel of in-flight child Ticks (today: join then Halt residual only)
-- Further composites/decorators (decorators catalog, time/cooldown nodes, subtree include) if product needs them
-- Whether TreeRunner should expose tick middleware / shared observation without Instrument rebuild
+Do **not** implement these until a real agent writes the same workaround ≥2 times. Hierarchy/primitives may already exist; first-class API would be convenience, not correctness.
+
+| Target | Why deferred |
+|--------|----------------|
+| Instrument deep-rebuild of third-party node types | No third-party node ecosystem; ADR 0008 wrap-as-is is enough. Dual type-switch maintenance is cheap at this size. |
+| First-class subtree blackboard scope (decorator / Env fork) | `NewBlackboardWithParent` + `WithBlackboard` already work; tree-level scope is convenience only. |
+| Concurrent Parallel cancel of in-flight child Ticks | Settled #9: cooperative cancel only. Join-then-Halt residual is intentional. |
+| Catalog expansion (Timeout, Cooldown, AlwaysSuccess, subtree include, …) | Product surface; easy to add later as pure decorators. Not architecture debt. |
+| TreeRunner tick middleware / observation without Instrument | Runner stays a thin scheduler. Wrap `RunOnce` or Instrument *before* `NewTreeRunner`. |
+
+### Polish done without new surface
+
+- **TreeVisualizer** collapses **Observing** wrappers so **InstrumentRecorder** dumps annotate real nodes (Named/composites/leaves) without Observing noise.
+
+### When to reopen
+
+Reopen a deferred row only with concrete call-site pain (same glue written twice), not checklist parity with other BT libraries.

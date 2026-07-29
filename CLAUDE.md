@@ -1,6 +1,6 @@
 # bt-go — agent notes
 
-Go behavior-tree library. Module: `github.com/ratlabs-io/bt-go`, package `bt`, latest **v1.6.0** (`a5ad4e6`).
+Go behavior-tree library. Module: `github.com/ratlabs-io/bt-go`, package `bt`, latest **v1.6.1**.
 
 ## Before changing architecture
 
@@ -38,6 +38,7 @@ go run ./examples/agent
 - Reactive vs memory: explicit constructors (`NewSequence` vs `NewMemorySequence`); memory idle index **-1**
 - Observation: per-node `NewObserving`; tree-wide `Instrument` / `InstrumentRecorder` (does not mutate original)
 - Sequence Halt: only abandon later Running siblings (`lastRunning > i`); never false-Halt after Success progress
+- Cancel: cooperative only — long Actions poll `env.Context().Done()`; no mid-Tick kill
 
 ## Gotchas
 
@@ -45,9 +46,14 @@ go run ./examples/agent
 - `Instrument` rebuilds known types; custom third-party nodes wrap-as-is (not deep-cloned)
 - Concurrent Parallel does not cancel in-flight child Tick bodies (join, then residual Halt)
 - `Reset` ≠ `Halt` — always call Halt when aborting mid-run
+- `TreeVisualizer` collapses `Observing` (Instrument dumps show real nodes + statuses)
+
+## Do not expand without product pain
+
+See CONTEXT settled #10 and “Deferred” open targets. Skip: runner middleware, scoped-blackboard decorator, catalog Timeout/Cooldown, Instrument third-party deep-clone, hard Tick interrupt.
 
 ## Release
 
-Semver tags with `v` prefix (`v1.6.0`). No users assumed — breaking changes OK with a tag bump and CHANGELOG entry. Go major ≥2 needs `module .../v2` if ever used.
+Semver tags with `v` prefix (`v1.6.1`). No users assumed — breaking changes OK with a tag bump and CHANGELOG entry. Go major ≥2 needs `module .../v2` if ever used.
 
-Architecture evaluation cadence: fresh pass against code + open targets in CONTEXT; implement settled items; tag; update CONTEXT/ADRs.
+Architecture cadence: use the library in real agents; reopen CONTEXT deferred rows only when the same workaround appears twice. Do not grow surface for BT-checklist parity.

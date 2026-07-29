@@ -45,6 +45,14 @@ func (tv *TreeVisualizer) visualizeNode(builder *strings.Builder, node Behavior,
 		return
 	}
 
+	// Observing is meta (tick hooks only). Collapse it so dumps — especially
+	// InstrumentRecorder trees — show real control/leaf structure. Status maps
+	// from Instrument key on the observed child, not the wrapper.
+	if o, ok := node.(*Observing); ok {
+		tv.visualizeNode(builder, o.Child, prefix, isLast, isRoot)
+		return
+	}
+
 	connector := "├── "
 	newPrefix := prefix + "│   "
 	if isLast {
@@ -175,8 +183,6 @@ func (tv *TreeVisualizer) getNodeName(node Behavior) string {
 		return "UntilFailure"
 	case *Named:
 		return n.VisualizeNode()
-	case *Observing:
-		return "Observing"
 	case *AbortHook:
 		return "AbortHook"
 	default:

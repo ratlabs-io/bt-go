@@ -7,7 +7,7 @@ A small, composable **behavior tree** library for Go.
 ## Install
 
 ```bash
-go get github.com/ratlabs-io/bt-go@v1.6.0
+go get github.com/ratlabs-io/bt-go@v1.6.1
 ```
 
 ```go
@@ -80,7 +80,7 @@ branch := bt.NewAbortHook(longRunningSubtree, func(env bt.Env) {
 | API | Scope |
 |-----|--------|
 | `NewObserving` | One node |
-| `Instrument` / `InstrumentRecorder` | Whole tree (rebuilds wrappers; original unchanged) |
+| `Instrument` / `InstrumentRecorder` | Whole tree (rebuilds wrappers; original unchanged; visualizer collapses Observing) |
 
 ## Quick start
 

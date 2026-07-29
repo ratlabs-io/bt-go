@@ -119,6 +119,18 @@ func TestTreeVisualizerWithStatus(t *testing.T) {
 	}
 }
 
+func TestTreeVisualizerCollapsesObserving(t *testing.T) {
+	leaf := bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Success })
+	root := bt.NewObserving(bt.NewNamed("Leaf", leaf), nil)
+	out := bt.NewTreeVisualizer(root).Visualize()
+	if strings.Contains(out, "Observing") {
+		t.Fatalf("Observing should collapse, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Leaf") {
+		t.Fatalf("expected Named label, got:\n%s", out)
+	}
+}
+
 func TestCustomNodeVisualizer(t *testing.T) {
 	customAction := NewCustomVisualizerAction("TestAction")
 	result := bt.NewTreeVisualizer(customAction).Visualize()
