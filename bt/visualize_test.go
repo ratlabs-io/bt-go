@@ -16,7 +16,7 @@ func NewCustomVisualizerAction(name string) *CustomVisualizerAction {
 	return &CustomVisualizerAction{name: name}
 }
 
-func (c *CustomVisualizerAction) Tick(ctx bt.BehaviorContext) bt.RunStatus {
+func (c *CustomVisualizerAction) Tick(ctx bt.Env) bt.RunStatus {
 	return bt.Success
 }
 
@@ -25,8 +25,8 @@ func (c *CustomVisualizerAction) VisualizeNode() string {
 }
 
 func TestTreeVisualizerBasic(t *testing.T) {
-	action1 := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Success })
-	action2 := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Failure })
+	action1 := bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Success })
+	action2 := bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Failure })
 	sequence := bt.NewSequence(action1, action2)
 
 	result := bt.NewTreeVisualizer(sequence).Visualize()
@@ -44,8 +44,8 @@ func TestTreeVisualizerBasic(t *testing.T) {
 }
 
 func TestTreeVisualizerComplex(t *testing.T) {
-	action1 := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Success })
-	condition := bt.NewCondition(func(ctx bt.BehaviorContext) bool { return true })
+	action1 := bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Success })
+	condition := bt.NewCondition(func(env bt.Env) bool { return true })
 	inverter := bt.NewInverter(condition)
 	repeater := bt.NewRepeater(action1, 3)
 	selector := bt.NewSelector(inverter, repeater)
@@ -61,16 +61,16 @@ func TestTreeVisualizerComplex(t *testing.T) {
 
 func TestTreeVisualizerBinaryAndSwitch(t *testing.T) {
 	bin := bt.NewBinarySelector(
-		bt.NewCondition(func(ctx bt.BehaviorContext) bool { return true }),
-		bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Success }),
-		bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Failure }),
+		bt.NewCondition(func(env bt.Env) bool { return true }),
+		bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Success }),
+		bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Failure }),
 	)
 	sw := bt.NewSwitch(
-		func(ctx bt.BehaviorContext) string { return "a" },
+		func(env bt.Env) string { return "a" },
 		map[string]bt.Behavior{
-			"a": bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Success }),
+			"a": bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Success }),
 		},
-		bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Failure }),
+		bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Failure }),
 	)
 	root := bt.NewSequence(bin, sw)
 	result := bt.NewTreeVisualizer(root).Visualize()
@@ -84,7 +84,7 @@ func TestTreeVisualizerBinaryAndSwitch(t *testing.T) {
 
 func TestTreeVisualizerParallel(t *testing.T) {
 	p := bt.NewParallel(bt.RequireAll,
-		bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Success }),
+		bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Success }),
 	)
 	result := bt.NewTreeVisualizer(p).Visualize()
 	if !strings.Contains(result, "Parallel(RequireAll)") {
@@ -93,8 +93,8 @@ func TestTreeVisualizerParallel(t *testing.T) {
 }
 
 func TestTreeVisualizerWithStatus(t *testing.T) {
-	action1 := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Success })
-	action2 := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Failure })
+	action1 := bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Success })
+	action2 := bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Failure })
 	sequence := bt.NewSequence(action1, action2)
 
 	statusMap := map[bt.Behavior]bt.RunStatus{
@@ -121,15 +121,15 @@ func TestCustomNodeVisualizer(t *testing.T) {
 }
 
 func TestStatusRecorder(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 
-	action1 := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Success })
-	action2 := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Failure })
+	action1 := bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Success })
+	action2 := bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Failure })
 	sequence := bt.NewSequence(action1, action2)
 
 	snapshot := bt.NewStatusRecorder()
-	status1 := snapshot.Tick(ctx, action1)
-	status2 := snapshot.Tick(ctx, action2)
+	status1 := snapshot.Tick(env, action1)
+	status2 := snapshot.Tick(env, action2)
 
 	if status1 != bt.Success {
 		t.Errorf("Expected Success status from action1, got %v", status1)

@@ -1,7 +1,7 @@
 package bt
 
 // KeyFunc derives a case key from the context for Switch selection.
-type KeyFunc func(ctx BehaviorContext) string
+type KeyFunc func(env Env) string
 
 // Switch selects a child by a dynamic string key.
 //
@@ -26,19 +26,19 @@ func NewSwitch(keyFunc KeyFunc, cases map[string]Behavior, defaultBehavior Behav
 }
 
 // Tick selects and runs the matching case or default.
-func (s *Switch) Tick(ctx BehaviorContext) RunStatus {
+func (s *Switch) Tick(env Env) RunStatus {
 	if s.KeyFunc == nil {
 		if s.Default != nil {
-			return s.Default.Tick(ctx)
+			return s.Default.Tick(env)
 		}
 		return Failure
 	}
-	key := s.KeyFunc(ctx)
+	key := s.KeyFunc(env)
 	if behavior, ok := s.Cases[key]; ok && behavior != nil {
-		return behavior.Tick(ctx)
+		return behavior.Tick(env)
 	}
 	if s.Default != nil {
-		return s.Default.Tick(ctx)
+		return s.Default.Tick(env)
 	}
 	return Failure
 }

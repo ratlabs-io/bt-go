@@ -11,7 +11,7 @@ import (
 )
 
 func createCountingAction(counter *int, mutex *sync.Mutex, delay time.Duration, status bt.RunStatus) bt.Behavior {
-	return bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	return bt.NewAction(func(env bt.Env) bt.RunStatus {
 		if delay > 0 {
 			time.Sleep(delay)
 		}
@@ -29,7 +29,7 @@ func TestParallelPolicyString(t *testing.T) {
 }
 
 func TestParallelRequireOne(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 	var counter int
 	var mu sync.Mutex
 
@@ -37,7 +37,7 @@ func TestParallelRequireOne(t *testing.T) {
 		createCountingAction(&counter, &mu, 10*time.Millisecond, bt.Failure),
 		createCountingAction(&counter, &mu, 20*time.Millisecond, bt.Failure),
 	)
-	if result := parallel.Tick(ctx); result != bt.Failure {
+	if result := parallel.Tick(env); result != bt.Failure {
 		t.Errorf("Expected Failure when all children fail, got %v", result)
 	}
 	if counter != 2 {
@@ -49,7 +49,7 @@ func TestParallelRequireOne(t *testing.T) {
 		createCountingAction(&counter, &mu, 10*time.Millisecond, bt.Failure),
 		createCountingAction(&counter, &mu, 20*time.Millisecond, bt.Success),
 	)
-	if result := parallel.Tick(ctx); result != bt.Success {
+	if result := parallel.Tick(env); result != bt.Success {
 		t.Errorf("Expected Success when at least one child succeeds, got %v", result)
 	}
 	if counter != 2 {
@@ -61,7 +61,7 @@ func TestParallelRequireOne(t *testing.T) {
 		createCountingAction(&counter, &mu, 10*time.Millisecond, bt.Failure),
 		createCountingAction(&counter, &mu, 20*time.Millisecond, bt.Running),
 	)
-	if result := parallel.Tick(ctx); result != bt.Running {
+	if result := parallel.Tick(env); result != bt.Running {
 		t.Errorf("Expected Running when at least one child is running, got %v", result)
 	}
 	if counter != 2 {
@@ -70,7 +70,7 @@ func TestParallelRequireOne(t *testing.T) {
 }
 
 func TestParallelRequireAll(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 	var counter int
 	var mu sync.Mutex
 
@@ -78,7 +78,7 @@ func TestParallelRequireAll(t *testing.T) {
 		createCountingAction(&counter, &mu, 10*time.Millisecond, bt.Success),
 		createCountingAction(&counter, &mu, 20*time.Millisecond, bt.Failure),
 	)
-	if result := parallel.Tick(ctx); result != bt.Failure {
+	if result := parallel.Tick(env); result != bt.Failure {
 		t.Errorf("Expected Failure when any child fails, got %v", result)
 	}
 
@@ -87,7 +87,7 @@ func TestParallelRequireAll(t *testing.T) {
 		createCountingAction(&counter, &mu, 10*time.Millisecond, bt.Success),
 		createCountingAction(&counter, &mu, 20*time.Millisecond, bt.Success),
 	)
-	if result := parallel.Tick(ctx); result != bt.Success {
+	if result := parallel.Tick(env); result != bt.Success {
 		t.Errorf("Expected Success when all children succeed, got %v", result)
 	}
 
@@ -96,13 +96,13 @@ func TestParallelRequireAll(t *testing.T) {
 		createCountingAction(&counter, &mu, 10*time.Millisecond, bt.Success),
 		createCountingAction(&counter, &mu, 20*time.Millisecond, bt.Running),
 	)
-	if result := parallel.Tick(ctx); result != bt.Running {
+	if result := parallel.Tick(env); result != bt.Running {
 		t.Errorf("Expected Running when any child is running, got %v", result)
 	}
 }
 
 func TestParallelSuccessOnAll(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 	var counter int
 	var mu sync.Mutex
 
@@ -110,7 +110,7 @@ func TestParallelSuccessOnAll(t *testing.T) {
 		createCountingAction(&counter, &mu, 0, bt.Success),
 		createCountingAction(&counter, &mu, 0, bt.Failure),
 	)
-	if result := parallel.Tick(ctx); result != bt.Running {
+	if result := parallel.Tick(env); result != bt.Running {
 		t.Errorf("Expected Running when any child fails, got %v", result)
 	}
 
@@ -119,13 +119,13 @@ func TestParallelSuccessOnAll(t *testing.T) {
 		createCountingAction(&counter, &mu, 0, bt.Success),
 		createCountingAction(&counter, &mu, 0, bt.Success),
 	)
-	if result := parallel.Tick(ctx); result != bt.Success {
+	if result := parallel.Tick(env); result != bt.Success {
 		t.Errorf("Expected Success when all children succeed, got %v", result)
 	}
 }
 
 func TestParallelSuccessOnOne(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 	var counter int
 	var mu sync.Mutex
 
@@ -133,7 +133,7 @@ func TestParallelSuccessOnOne(t *testing.T) {
 		createCountingAction(&counter, &mu, 0, bt.Failure),
 		createCountingAction(&counter, &mu, 0, bt.Failure),
 	)
-	if result := parallel.Tick(ctx); result != bt.Running {
+	if result := parallel.Tick(env); result != bt.Running {
 		t.Errorf("Expected Running when all children fail, got %v", result)
 	}
 
@@ -142,13 +142,13 @@ func TestParallelSuccessOnOne(t *testing.T) {
 		createCountingAction(&counter, &mu, 0, bt.Failure),
 		createCountingAction(&counter, &mu, 0, bt.Success),
 	)
-	if result := parallel.Tick(ctx); result != bt.Success {
+	if result := parallel.Tick(env); result != bt.Success {
 		t.Errorf("Expected Success when at least one child succeeds, got %v", result)
 	}
 }
 
 func TestParallelNilChild(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 	var counter int
 	var mu sync.Mutex
 
@@ -156,7 +156,7 @@ func TestParallelNilChild(t *testing.T) {
 		createCountingAction(&counter, &mu, 0, bt.Success),
 		nil,
 	)
-	if result := parallel.Tick(ctx); result != bt.Failure {
+	if result := parallel.Tick(env); result != bt.Failure {
 		t.Errorf("Expected Failure when a child is nil with RequireAll, got %v", result)
 	}
 	if counter != 1 {
@@ -165,14 +165,14 @@ func TestParallelNilChild(t *testing.T) {
 }
 
 func TestParallelEmpty(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
-	if bt.NewParallel(bt.RequireAll).Tick(ctx) != bt.Success {
+	env := bt.NewEnv(context.Background())
+	if bt.NewParallel(bt.RequireAll).Tick(env) != bt.Success {
 		t.Error("empty parallel should succeed")
 	}
 }
 
 func TestParallelConcurrency(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 	var counter int
 	var mu sync.Mutex
 
@@ -183,7 +183,7 @@ func TestParallelConcurrency(t *testing.T) {
 	)
 
 	start := time.Now()
-	result := parallel.Tick(ctx)
+	result := parallel.Tick(env)
 	elapsed := time.Since(start)
 
 	if result != bt.Success {
@@ -199,25 +199,25 @@ func TestParallelConcurrency(t *testing.T) {
 
 func TestParallelSharedContext(t *testing.T) {
 	// Parallel children must share the parent context / blackboard.
-	ctx := bt.NewBehaviorContext(context.Background())
-	ctx.Set("seed", 10)
+	env := bt.NewEnv(context.Background())
+	env.Set("seed", 10)
 
 	var mu sync.Mutex
 	var seen []int
 
 	child := func(delta int) bt.Behavior {
-		return bt.NewAction(func(c bt.BehaviorContext) bt.RunStatus {
-			v, _ := c.Get("seed")
+		return bt.NewAction(func(env bt.Env) bt.RunStatus {
+			v, _ := env.Get("seed")
 			mu.Lock()
 			seen = append(seen, v.(int)+delta)
 			mu.Unlock()
-			c.Set("from_child", delta)
+			env.Set("from_child", delta)
 			return bt.Success
 		})
 	}
 
 	p := bt.NewParallel(bt.RequireAll, child(1), child(2))
-	if p.Tick(ctx) != bt.Success {
+	if p.Tick(env) != bt.Success {
 		t.Fatal("expected Success")
 	}
 	if len(seen) != 2 {
@@ -229,26 +229,26 @@ func TestParallelSharedContext(t *testing.T) {
 		}
 	}
 	// At least one child write should be visible on parent context.
-	if !ctx.Has("from_child") {
+	if !env.Has("from_child") {
 		t.Error("child Set should be visible on shared context")
 	}
 }
 
 func TestParallelReticksAllChildren(t *testing.T) {
 	// Children are re-ticked every Parallel.Tick (no sticky "completed" memory).
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 	var calls int32
 
-	action := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	action := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		atomic.AddInt32(&calls, 1)
 		return bt.Success
 	})
 	p := bt.NewParallel(bt.RequireAll, action)
 
-	if p.Tick(ctx) != bt.Success {
+	if p.Tick(env) != bt.Success {
 		t.Fatal("first tick")
 	}
-	if p.Tick(ctx) != bt.Success {
+	if p.Tick(env) != bt.Success {
 		t.Fatal("second tick")
 	}
 	if atomic.LoadInt32(&calls) != 2 {
@@ -258,34 +258,34 @@ func TestParallelReticksAllChildren(t *testing.T) {
 
 func TestParallelSuccessOnAllRecoversFromFailure(t *testing.T) {
 	// Regression: sticky child status prevented re-trying a failed child.
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 	var phase int32
 
-	flaky := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	flaky := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		if atomic.AddInt32(&phase, 1) == 1 {
 			return bt.Failure
 		}
 		return bt.Success
 	})
-	ok := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	ok := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		return bt.Success
 	})
 
 	p := bt.NewParallel(bt.SuccessOnAll, flaky, ok)
-	if p.Tick(ctx) != bt.Running {
+	if p.Tick(env) != bt.Running {
 		t.Fatal("expected Running while flaky fails")
 	}
-	if p.Tick(ctx) != bt.Success {
+	if p.Tick(env) != bt.Success {
 		t.Fatal("expected Success once flaky recovers")
 	}
 }
 
 func TestParallelStateTracking(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 	var mu sync.Mutex
 
 	stateValue := 0
-	statefulAction := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	statefulAction := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		mu.Lock()
 		defer mu.Unlock()
 		if stateValue == 0 {
@@ -296,21 +296,21 @@ func TestParallelStateTracking(t *testing.T) {
 	})
 
 	var actionCount int32
-	countingAction := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	countingAction := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		atomic.AddInt32(&actionCount, 1)
 		return bt.Running
 	})
 
 	parallel := bt.NewParallel(bt.RequireAll, statefulAction, countingAction)
 
-	if result := parallel.Tick(ctx); result != bt.Running {
+	if result := parallel.Tick(env); result != bt.Running {
 		t.Errorf("Expected Running on first tick, got %v", result)
 	}
 	if stateValue != 1 {
 		t.Errorf("Expected stateValue to be 1 after first tick, got %d", stateValue)
 	}
 
-	if result := parallel.Tick(ctx); result != bt.Running {
+	if result := parallel.Tick(env); result != bt.Running {
 		t.Errorf("Expected Running on second tick, got %v", result)
 	}
 	if count := atomic.LoadInt32(&actionCount); count != 2 {

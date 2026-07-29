@@ -211,11 +211,11 @@ func (s *StatusRecorder) GetStatusMap() map[Behavior]RunStatus {
 
 // Tick runs node, records its status, and returns that status.
 // Only the node itself is recorded — not its descendants.
-func (s *StatusRecorder) Tick(ctx BehaviorContext, node Behavior) RunStatus {
+func (s *StatusRecorder) Tick(env Env, node Behavior) RunStatus {
 	if node == nil {
 		return Failure
 	}
-	status := node.Tick(ctx)
+	status := node.Tick(env)
 	s.statusMap[node] = status
 	return status
 }

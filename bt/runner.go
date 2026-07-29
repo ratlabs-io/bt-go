@@ -54,26 +54,26 @@ func NewTreeRunner(tree Behavior, options ...RunnerOption) *TreeRunner {
 	return tr
 }
 
-// Run ticks the tree at the configured rate until ctx is cancelled.
+// Run ticks the tree at the configured rate until env.Context() is cancelled.
 // It blocks until Context().Done() is closed.
-func (tr *TreeRunner) Run(ctx BehaviorContext) {
+func (tr *TreeRunner) Run(env Env) {
 	ticker := time.NewTicker(tr.tickRate)
 	defer ticker.Stop()
 
-	done := ctx.Context().Done()
+	done := env.Context().Done()
 	for {
 		select {
 		case <-done:
 			return
 		case <-ticker.C:
-			tr.dispatch(tr.tree.Tick(ctx))
+			tr.dispatch(tr.tree.Tick(env))
 		}
 	}
 }
 
 // RunOnce ticks the tree once, fires the matching callback, and returns the status.
-func (tr *TreeRunner) RunOnce(ctx BehaviorContext) RunStatus {
-	status := tr.tree.Tick(ctx)
+func (tr *TreeRunner) RunOnce(env Env) RunStatus {
+	status := tr.tree.Tick(env)
 	tr.dispatch(status)
 	return status
 }

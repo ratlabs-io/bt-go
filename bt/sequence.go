@@ -21,12 +21,12 @@ func NewSequence(children ...Behavior) *Sequence {
 }
 
 // Tick executes children in order. See type docs for status rules.
-func (s *Sequence) Tick(ctx BehaviorContext) RunStatus {
+func (s *Sequence) Tick(env Env) RunStatus {
 	for _, child := range s.Children {
 		if child == nil {
 			return Failure
 		}
-		status := child.Tick(ctx)
+		status := child.Tick(env)
 		if status != Success {
 			return status
 		}

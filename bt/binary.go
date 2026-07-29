@@ -21,15 +21,15 @@ func NewBinarySelector(condition, ifTrue, ifFalse Behavior) *BinarySelector {
 }
 
 // Tick evaluates Condition and runs the matching branch.
-func (node *BinarySelector) Tick(ctx BehaviorContext) RunStatus {
-	if node.Condition != nil && node.Condition.Tick(ctx) == Success {
+func (node *BinarySelector) Tick(env Env) RunStatus {
+	if node.Condition != nil && node.Condition.Tick(env) == Success {
 		if node.IfTrue == nil {
 			return Failure
 		}
-		return node.IfTrue.Tick(ctx)
+		return node.IfTrue.Tick(env)
 	}
 	if node.IfFalse == nil {
 		return Failure
 	}
-	return node.IfFalse.Tick(ctx)
+	return node.IfFalse.Tick(env)
 }

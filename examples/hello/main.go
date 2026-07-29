@@ -10,16 +10,16 @@ import (
 
 func main() {
 	tree := bt.NewSequence(
-		bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
-			hello, ok := ctx.Get("greeting")
+		bt.NewAction(func(env bt.Env) bt.RunStatus {
+			hello, ok := env.Get("greeting")
 			if !ok {
 				return bt.Failure
 			}
 			fmt.Printf("%s ", hello.(string))
 			return bt.Success
 		}),
-		bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
-			world, ok := ctx.Get("subject")
+		bt.NewAction(func(env bt.Env) bt.RunStatus {
+			world, ok := env.Get("subject")
 			if !ok {
 				return bt.Failure
 			}
@@ -28,11 +28,11 @@ func main() {
 		}),
 	)
 
-	ctx := bt.NewBehaviorContext(context.Background())
-	ctx.Set("greeting", "Hello")
-	ctx.Set("subject", "World")
+	env := bt.NewEnv(context.Background())
+	env.Set("greeting", "Hello")
+	env.Set("subject", "World")
 
-	status := tree.Tick(ctx)
+	status := tree.Tick(env)
 	fmt.Printf("Tree result: %s\n", status)
 
 	// Optional: dump the tree structure.

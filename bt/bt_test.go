@@ -8,33 +8,33 @@ import (
 )
 
 func alwaysFalseCondition() *bt.Condition {
-	return bt.NewCondition(func(ctx bt.BehaviorContext) bool {
+	return bt.NewCondition(func(env bt.Env) bool {
 		return false
 	})
 }
 
 func alwaysTrueCondition() *bt.Condition {
-	return bt.NewCondition(func(ctx bt.BehaviorContext) bool {
+	return bt.NewCondition(func(env bt.Env) bool {
 		return true
 	})
 }
 
 func alwaysSuccessAction() bt.Behavior {
-	return bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
-		ctx.Set("result", "success")
+	return bt.NewAction(func(env bt.Env) bt.RunStatus {
+		env.Set("result", "success")
 		return bt.Success
 	})
 }
 
 func alwaysFailureAction() bt.Behavior {
-	return bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
-		ctx.Set("result", "failure")
+	return bt.NewAction(func(env bt.Env) bt.RunStatus {
+		env.Set("result", "failure")
 		return bt.Failure
 	})
 }
 
 func alwaysRunningAction() bt.Behavior {
-	return bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	return bt.NewAction(func(env bt.Env) bt.RunStatus {
 		return bt.Running
 	})
 }
@@ -57,30 +57,30 @@ func TestRunStatusString(t *testing.T) {
 }
 
 func TestAction(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
-	if alwaysSuccessAction().Tick(ctx) != bt.Success {
+	env := bt.NewEnv(context.Background())
+	if alwaysSuccessAction().Tick(env) != bt.Success {
 		t.Errorf("expected success")
 	}
-	if result, ok := ctx.Get("result"); !ok || result != "success" {
+	if result, ok := env.Get("result"); !ok || result != "success" {
 		t.Errorf("expected result to be success")
 	}
 }
 
 func TestActionNilFunc(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
-	if bt.NewAction(nil).Tick(ctx) != bt.Failure {
+	env := bt.NewEnv(context.Background())
+	if bt.NewAction(nil).Tick(env) != bt.Failure {
 		t.Errorf("nil action func should return Failure")
 	}
 }
 
 func TestSequence(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 	sequence := bt.NewSequence(
 		alwaysSuccessAction(),
 		alwaysFailureAction(),
 		alwaysRunningAction(),
 	)
-	if result := sequence.Tick(ctx); result != bt.Failure {
+	if result := sequence.Tick(env); result != bt.Failure {
 		t.Errorf("expected failure, but got %v", result)
 	}
 
@@ -89,7 +89,7 @@ func TestSequence(t *testing.T) {
 		alwaysSuccessAction(),
 		alwaysRunningAction(),
 	)
-	if result := sequence.Tick(ctx); result != bt.Running {
+	if result := sequence.Tick(env); result != bt.Running {
 		t.Errorf("expected running, but got %v", result)
 	}
 
@@ -98,7 +98,7 @@ func TestSequence(t *testing.T) {
 		alwaysSuccessAction(),
 		alwaysSuccessAction(),
 	)
-	if result := sequence.Tick(ctx); result != bt.Success {
+	if result := sequence.Tick(env); result != bt.Success {
 		t.Errorf("expected success, but got %v", result)
 	}
 }
@@ -106,11 +106,11 @@ func TestSequence(t *testing.T) {
 func TestSequenceReactiveRestart(t *testing.T) {
 	// Sequence is reactive: every Tick starts at the first child.
 	var firstCalls, secondCalls int
-	first := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	first := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		firstCalls++
 		return bt.Success
 	})
-	second := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	second := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		secondCalls++
 		if secondCalls < 2 {
 			return bt.Running
@@ -119,12 +119,12 @@ func TestSequenceReactiveRestart(t *testing.T) {
 	})
 
 	seq := bt.NewSequence(first, second)
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 
-	if seq.Tick(ctx) != bt.Running {
+	if seq.Tick(env) != bt.Running {
 		t.Fatal("expected Running on first tick")
 	}
-	if seq.Tick(ctx) != bt.Success {
+	if seq.Tick(env) != bt.Success {
 		t.Fatal("expected Success on second tick")
 	}
 	if firstCalls != 2 {
@@ -136,27 +136,27 @@ func TestSequenceReactiveRestart(t *testing.T) {
 }
 
 func TestSequenceNilChild(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 	seq := bt.NewSequence(alwaysSuccessAction(), nil)
-	if seq.Tick(ctx) != bt.Failure {
+	if seq.Tick(env) != bt.Failure {
 		t.Errorf("nil child should yield Failure")
 	}
 }
 
 func TestSequenceEmpty(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
-	if bt.NewSequence().Tick(ctx) != bt.Success {
+	env := bt.NewEnv(context.Background())
+	if bt.NewSequence().Tick(env) != bt.Success {
 		t.Errorf("empty sequence should succeed (vacuous truth)")
 	}
 }
 
 func TestSelector(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 	selector := bt.NewSelector(
 		alwaysFailureAction(),
 		alwaysFailureAction(),
 	)
-	if result := selector.Tick(ctx); result != bt.Failure {
+	if result := selector.Tick(env); result != bt.Failure {
 		t.Errorf("expected failure, but got %v", result)
 	}
 
@@ -164,7 +164,7 @@ func TestSelector(t *testing.T) {
 		alwaysFailureAction(),
 		alwaysRunningAction(),
 	)
-	if result := selector.Tick(ctx); result != bt.Running {
+	if result := selector.Tick(env); result != bt.Running {
 		t.Errorf("expected running, but got %v", result)
 	}
 
@@ -172,7 +172,7 @@ func TestSelector(t *testing.T) {
 		alwaysFailureAction(),
 		alwaysSuccessAction(),
 	)
-	if result := selector.Tick(ctx); result != bt.Success {
+	if result := selector.Tick(env); result != bt.Success {
 		t.Errorf("expected success, but got %v", result)
 	}
 }
@@ -180,26 +180,26 @@ func TestSelector(t *testing.T) {
 func TestSelectorPriorityPreempt(t *testing.T) {
 	// Higher-priority (earlier) children are re-checked every tick.
 	highReady := false
-	high := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	high := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		if highReady {
 			return bt.Success
 		}
 		return bt.Failure
 	})
 	var lowCalls int
-	low := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	low := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		lowCalls++
 		return bt.Running
 	})
 
 	sel := bt.NewSelector(high, low)
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 
-	if sel.Tick(ctx) != bt.Running {
+	if sel.Tick(env) != bt.Running {
 		t.Fatal("expected Running while high fails and low runs")
 	}
 	highReady = true
-	if sel.Tick(ctx) != bt.Success {
+	if sel.Tick(env) != bt.Success {
 		t.Fatal("expected high priority to preempt once ready")
 	}
 	if lowCalls != 1 {
@@ -208,12 +208,12 @@ func TestSelectorPriorityPreempt(t *testing.T) {
 }
 
 func TestPrioritySelectorAlias(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 	priority := bt.NewPrioritySelector(
 		alwaysFailureAction(),
 		alwaysSuccessAction(),
 	)
-	if result := priority.Tick(ctx); result != bt.Success {
+	if result := priority.Tick(env); result != bt.Success {
 		t.Errorf("expected success, but got %v", result)
 	}
 	// Same concrete type as Selector.
@@ -221,50 +221,50 @@ func TestPrioritySelectorAlias(t *testing.T) {
 }
 
 func TestCondition(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 
 	conditional := bt.NewConditional(alwaysTrueCondition(), alwaysSuccessAction())
-	if result := conditional.Tick(ctx); result != bt.Success {
+	if result := conditional.Tick(env); result != bt.Success {
 		t.Errorf("expected success, but got %v", result)
 	}
 
 	conditional = bt.NewConditional(alwaysFalseCondition(), alwaysFailureAction())
-	if result := conditional.Tick(ctx); result != bt.Failure {
+	if result := conditional.Tick(env); result != bt.Failure {
 		t.Errorf("expected failure, but got %v", result)
 	}
 }
 
 func TestConditionLeaf(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
-	if alwaysTrueCondition().Tick(ctx) != bt.Success {
+	env := bt.NewEnv(context.Background())
+	if alwaysTrueCondition().Tick(env) != bt.Success {
 		t.Error("true condition should Success")
 	}
-	if alwaysFalseCondition().Tick(ctx) != bt.Failure {
+	if alwaysFalseCondition().Tick(env) != bt.Failure {
 		t.Error("false condition should Failure")
 	}
-	if bt.NewCondition(nil).Tick(ctx) != bt.Failure {
+	if bt.NewCondition(nil).Tick(env) != bt.Failure {
 		t.Error("nil check func should Failure")
 	}
 }
 
 func TestConditionalNilParts(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
-	if bt.NewConditional(nil, alwaysSuccessAction()).Tick(ctx) != bt.Failure {
+	env := bt.NewEnv(context.Background())
+	if bt.NewConditional(nil, alwaysSuccessAction()).Tick(env) != bt.Failure {
 		t.Error("nil condition should Failure")
 	}
-	if bt.NewConditional(alwaysTrueCondition(), nil).Tick(ctx) != bt.Failure {
+	if bt.NewConditional(alwaysTrueCondition(), nil).Tick(env) != bt.Failure {
 		t.Error("nil action with true condition should Failure")
 	}
 }
 
 func TestBinarySelector(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 	binary := bt.NewBinarySelector(
 		alwaysSuccessAction(),
 		alwaysSuccessAction(),
 		alwaysFailureAction(),
 	)
-	if binary.Tick(ctx) != bt.Success {
+	if binary.Tick(env) != bt.Success {
 		t.Errorf("expected success")
 	}
 	binary = bt.NewBinarySelector(
@@ -272,19 +272,19 @@ func TestBinarySelector(t *testing.T) {
 		alwaysSuccessAction(),
 		alwaysFailureAction(),
 	)
-	if result := binary.Tick(ctx); result != bt.Failure {
+	if result := binary.Tick(env); result != bt.Failure {
 		t.Errorf("expected failure, but got %v", result)
 	}
 }
 
 func TestBinarySelectorWithCondition(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 	node := bt.NewBinarySelector(
 		alwaysTrueCondition(),
 		alwaysSuccessAction(),
 		alwaysFailureAction(),
 	)
-	if node.Tick(ctx) != bt.Success {
+	if node.Tick(env) != bt.Success {
 		t.Error("true condition should take IfTrue branch")
 	}
 	node = bt.NewBinarySelector(
@@ -292,15 +292,15 @@ func TestBinarySelectorWithCondition(t *testing.T) {
 		alwaysSuccessAction(),
 		alwaysFailureAction(),
 	)
-	if node.Tick(ctx) != bt.Failure {
+	if node.Tick(env) != bt.Failure {
 		t.Error("false condition should take IfFalse branch")
 	}
 }
 
 func TestSwitch(t *testing.T) {
 	switchNode := bt.NewSwitch(
-		func(ctx bt.BehaviorContext) string {
-			key, _ := ctx.Get("key")
+		func(env bt.Env) string {
+			key, _ := env.Get("key")
 			return key.(string)
 		},
 		map[string]bt.Behavior{
@@ -310,80 +310,93 @@ func TestSwitch(t *testing.T) {
 		alwaysRunningAction(),
 	)
 
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 
-	ctx.Set("key", "success")
-	if result := switchNode.Tick(ctx); result != bt.Success {
+	env.Set("key", "success")
+	if result := switchNode.Tick(env); result != bt.Success {
 		t.Errorf("expected success, but got %v", result)
 	}
 
-	ctx.Set("key", "failure")
-	if result := switchNode.Tick(ctx); result != bt.Failure {
+	env.Set("key", "failure")
+	if result := switchNode.Tick(env); result != bt.Failure {
 		t.Errorf("expected failure, but got %v", result)
 	}
 
-	ctx.Set("key", "unknown")
-	if result := switchNode.Tick(ctx); result != bt.Running {
+	env.Set("key", "unknown")
+	if result := switchNode.Tick(env); result != bt.Running {
 		t.Errorf("expected running, but got %v", result)
 	}
 }
 
 func TestSwitchNoDefault(t *testing.T) {
 	node := bt.NewSwitch(
-		func(ctx bt.BehaviorContext) string { return "missing" },
+		func(env bt.Env) string { return "missing" },
 		map[string]bt.Behavior{"ok": alwaysSuccessAction()},
 		nil,
 	)
-	ctx := bt.NewBehaviorContext(context.Background())
-	if node.Tick(ctx) != bt.Failure {
+	env := bt.NewEnv(context.Background())
+	if node.Tick(env) != bt.Failure {
 		t.Error("missing case with no default should Failure")
 	}
 }
 
-func TestBehaviorContextData(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
-	ctx.Set("a", 1)
-	if !ctx.Has("a") {
+func TestEnvData(t *testing.T) {
+	env := bt.NewEnv(context.Background())
+	env.Set("a", 1)
+	if !env.Has("a") {
 		t.Fatal("Has should be true after Set")
 	}
-	v, ok := ctx.Get("a")
+	v, ok := env.Get("a")
 	if !ok || v != 1 {
 		t.Fatalf("Get = %v, %v", v, ok)
 	}
-	// Context Set/Get must use the same store as the blackboard.
-	bb := ctx.GetBlackboard()
+	// Set/Get must use the same store as the blackboard.
+	bb := env.Blackboard()
 	if bv, ok := bb.Get("a"); !ok || bv != 1 {
-		t.Fatal("context data must live on the blackboard")
+		t.Fatal("env data must live on the blackboard")
 	}
-	ctx.Delete("a")
-	if ctx.Has("a") {
+	env.Delete("a")
+	if env.Has("a") {
 		t.Fatal("Delete should remove key")
 	}
 	if bb.Has("a") {
-		t.Fatal("Delete via context should clear blackboard")
+		t.Fatal("Delete via env should clear blackboard")
 	}
 }
 
-func TestBehaviorContextCancellation(t *testing.T) {
+func TestEnvCancellation(t *testing.T) {
 	parent, cancel := context.WithCancel(context.Background())
-	ctx := bt.NewBehaviorContext(parent)
-	if ctx.Context().Err() != nil {
+	env := bt.NewEnv(parent)
+	if env.Context().Err() != nil {
 		t.Fatal("context should not be done yet")
 	}
 	cancel()
-	if ctx.Context().Err() == nil {
-		t.Fatal("context should reflect parent cancellation")
+	if env.Context().Err() == nil {
+		t.Fatal("env.Context should reflect parent cancellation")
 	}
 }
 
-func TestBehaviorContextNilParent(t *testing.T) {
-	ctx := bt.NewBehaviorContext(nil)
-	if ctx.Context() == nil {
+func TestEnvNilParent(t *testing.T) {
+	env := bt.NewEnv(nil)
+	if env.Context() == nil {
 		t.Fatal("nil parent should fall back to Background")
 	}
-	ctx.Set("k", "v")
-	if v, ok := ctx.Get("k"); !ok || v != "v" {
-		t.Fatal("context should still store data")
+	env.Set("k", "v")
+	if v, ok := env.Get("k"); !ok || v != "v" {
+		t.Fatal("env should still store data on blackboard")
+	}
+}
+
+func TestEnvDoesNotImplementContext(t *testing.T) {
+	// Env is has-a context.Context, not is-a. Agent state must not look like
+	// request-scoped context values.
+	env := bt.NewEnv(context.Background())
+	if _, ok := any(env).(context.Context); ok {
+		t.Fatal("Env must not implement context.Context")
+	}
+	// Lifecycle is still available explicitly.
+	if env.Context() == nil {
+		t.Fatal("Context() must return a usable stdlib context")
 	}
 }
 

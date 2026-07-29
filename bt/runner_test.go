@@ -10,7 +10,7 @@ import (
 )
 
 func TestTreeRunnerOptions(t *testing.T) {
-	simpleAction := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	simpleAction := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		return bt.Success
 	})
 
@@ -35,8 +35,8 @@ func TestTreeRunnerOptions(t *testing.T) {
 		),
 	)
 
-	ctx := bt.NewBehaviorContext(context.Background())
-	result := runner.RunOnce(ctx)
+	env := bt.NewEnv(context.Background())
+	result := runner.RunOnce(env)
 
 	if result != bt.Success {
 		t.Errorf("Expected Success, got %v", result)
@@ -53,13 +53,13 @@ func TestTreeRunnerOptions(t *testing.T) {
 }
 
 func TestTreeRunnerNilCallbacks(t *testing.T) {
-	action := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	action := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		return bt.Failure
 	})
 	// Nil callbacks must not panic (treated as no-ops / leave defaults).
 	runner := bt.NewTreeRunner(action, bt.WithCallbacks(nil, nil, nil))
-	ctx := bt.NewBehaviorContext(context.Background())
-	if runner.RunOnce(ctx) != bt.Failure {
+	env := bt.NewEnv(context.Background())
+	if runner.RunOnce(env) != bt.Failure {
 		t.Fatal("expected Failure")
 	}
 }
@@ -68,10 +68,10 @@ func TestTreeRunnerRunMethod(t *testing.T) {
 	bgCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ctx := bt.NewBehaviorContext(bgCtx)
+	env := bt.NewEnv(bgCtx)
 
 	var counter int32
-	countingAction := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	countingAction := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		atomic.AddInt32(&counter, 1)
 		return bt.Running
 	})
@@ -79,7 +79,7 @@ func TestTreeRunnerRunMethod(t *testing.T) {
 	runner := bt.NewTreeRunner(countingAction, bt.WithTickRate(time.Millisecond))
 	done := make(chan struct{})
 	go func() {
-		runner.Run(ctx)
+		runner.Run(env)
 		close(done)
 	}()
 
@@ -101,13 +101,13 @@ func TestTreeRunnerWithCallbacks(t *testing.T) {
 	bgCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ctx := bt.NewBehaviorContext(bgCtx)
+	env := bt.NewEnv(bgCtx)
 
 	var successCount, failureCount, runningCount int32
 	states := []bt.RunStatus{bt.Success, bt.Failure, bt.Running}
 	var stateIndex int32
 
-	alternatingAction := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	alternatingAction := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		i := atomic.AddInt32(&stateIndex, 1) - 1
 		return states[int(i)%len(states)]
 	})
@@ -124,7 +124,7 @@ func TestTreeRunnerWithCallbacks(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		runner.Run(ctx)
+		runner.Run(env)
 		close(done)
 	}()
 
@@ -153,7 +153,7 @@ func TestTreeRunnerRunOnceStatuses(t *testing.T) {
 	makeRunner := func(status bt.RunStatus) *bt.TreeRunner {
 		gotSuccess, gotFailure, gotRunning = false, false, false
 		return bt.NewTreeRunner(
-			bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return status }),
+			bt.NewAction(func(env bt.Env) bt.RunStatus { return status }),
 			bt.WithCallbacks(
 				func() { gotSuccess = true },
 				func() { gotFailure = true },
@@ -161,12 +161,12 @@ func TestTreeRunnerRunOnceStatuses(t *testing.T) {
 			),
 		)
 	}
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 
-	if makeRunner(bt.Failure).RunOnce(ctx) != bt.Failure || !gotFailure || gotSuccess || gotRunning {
+	if makeRunner(bt.Failure).RunOnce(env) != bt.Failure || !gotFailure || gotSuccess || gotRunning {
 		t.Error("Failure callback mismatch")
 	}
-	if makeRunner(bt.Running).RunOnce(ctx) != bt.Running || !gotRunning || gotSuccess || gotFailure {
+	if makeRunner(bt.Running).RunOnce(env) != bt.Running || !gotRunning || gotSuccess || gotFailure {
 		t.Error("Running callback mismatch")
 	}
 }

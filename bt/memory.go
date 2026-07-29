@@ -34,7 +34,7 @@ func (s *MemorySequence) RunningIndex() int {
 }
 
 // Tick executes children from the remembered index. See type docs.
-func (s *MemorySequence) Tick(ctx BehaviorContext) RunStatus {
+func (s *MemorySequence) Tick(env Env) RunStatus {
 	if s.runningIndex < 0 || s.runningIndex > len(s.Children) {
 		s.runningIndex = 0
 	}
@@ -45,7 +45,7 @@ func (s *MemorySequence) Tick(ctx BehaviorContext) RunStatus {
 			s.runningIndex = 0
 			return Failure
 		}
-		status := child.Tick(ctx)
+		status := child.Tick(env)
 		switch status {
 		case Running:
 			s.runningIndex = i
@@ -97,7 +97,7 @@ func (s *MemorySelector) RunningIndex() int {
 }
 
 // Tick tries children from the remembered index. See type docs.
-func (s *MemorySelector) Tick(ctx BehaviorContext) RunStatus {
+func (s *MemorySelector) Tick(env Env) RunStatus {
 	start := 0
 	if s.runningIndex >= 0 {
 		if s.runningIndex >= len(s.Children) {
@@ -113,7 +113,7 @@ func (s *MemorySelector) Tick(ctx BehaviorContext) RunStatus {
 			s.runningIndex = -1
 			return Failure
 		}
-		status := child.Tick(ctx)
+		status := child.Tick(env)
 		switch status {
 		case Running:
 			s.runningIndex = i

@@ -5,7 +5,14 @@
 // composites (Sequence, Selector, Parallel, …) combine children; decorators
 // (Inverter, Repeater, …) wrap a single child.
 //
-// Shared agent state lives on a Blackboard, exposed through BehaviorContext.
+// # Environment (Env)
+//
+// Nodes receive an Env on every Tick. Env is not a context.Context:
+//
+//   - env.Context()  — stdlib context for cancellation/deadlines only
+//   - env.Blackboard() / Set/Get — mutable agent/world state
+//
+// Put agent data on the blackboard, never in context.WithValue.
 // Trees are typically ticked by a TreeRunner or by calling Behavior.Tick directly.
 package bt
 
@@ -38,7 +45,7 @@ func (rs RunStatus) String() string {
 // Behavior is implemented by every node in a behavior tree.
 type Behavior interface {
 	// Tick executes one step of the node and returns its status.
-	Tick(ctx BehaviorContext) RunStatus
+	Tick(env Env) RunStatus
 }
 
 // Composite is embedded by multi-child control nodes.

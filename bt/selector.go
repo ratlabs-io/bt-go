@@ -24,12 +24,12 @@ func NewSelector(children ...Behavior) *Selector {
 }
 
 // Tick tries each child until one does not fail. See type docs for status rules.
-func (s *Selector) Tick(ctx BehaviorContext) RunStatus {
+func (s *Selector) Tick(env Env) RunStatus {
 	for _, child := range s.Children {
 		if child == nil {
 			return Failure
 		}
-		status := child.Tick(ctx)
+		status := child.Tick(env)
 		if status != Failure {
 			return status
 		}

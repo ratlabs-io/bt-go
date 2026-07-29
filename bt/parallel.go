@@ -39,7 +39,7 @@ func (p ParallelPolicy) String() string {
 // Parallel ticks all children concurrently (one goroutine each) and aggregates
 // results according to policy.
 //
-// Children share the same BehaviorContext. Because the blackboard is
+// Children share the same Env. Because the blackboard is
 // thread-safe, concurrent Set/Get is safe; actions that mutate other shared
 // state must synchronize themselves.
 //
@@ -65,7 +65,7 @@ func (p *Parallel) Policy() ParallelPolicy {
 }
 
 // Tick runs all children concurrently and returns the policy result.
-func (p *Parallel) Tick(ctx BehaviorContext) RunStatus {
+func (p *Parallel) Tick(env Env) RunStatus {
 	n := len(p.Children)
 	if n == 0 {
 		return Success
@@ -82,8 +82,8 @@ func (p *Parallel) Tick(ctx BehaviorContext) RunStatus {
 		wg.Add(1)
 		go func(index int, behavior Behavior) {
 			defer wg.Done()
-			// Share the parent context so Set/Get/blackboard stay coherent.
-			statuses[index] = behavior.Tick(ctx)
+			// Share the same Env so blackboard writes stay coherent.
+			statuses[index] = behavior.Tick(env)
 		}(i, child)
 	}
 

@@ -102,36 +102,36 @@ func TestBlackboardHierarchy(t *testing.T) {
 	}
 }
 
-func TestBlackboardWithContext(t *testing.T) {
+func TestBlackboardWithEnv(t *testing.T) {
 	bb := bt.NewBlackboard()
 	bb.Set("testKey", "testValue")
 
-	ctx := bt.NewBehaviorContext(context.Background(), bt.WithBlackboard(bb))
+	env := bt.NewEnv(context.Background(), bt.WithBlackboard(bb))
 
-	ctxBB := ctx.GetBlackboard()
-	if ctxBB == nil {
-		t.Errorf("Expected context to have a blackboard")
+	envBB := env.Blackboard()
+	if envBB == nil {
+		t.Errorf("Expected env to have a blackboard")
 	}
 
-	value, ok := ctxBB.Get("testKey")
+	value, ok := envBB.Get("testKey")
 	if !ok {
-		t.Errorf("Expected to find testKey in context's blackboard")
+		t.Errorf("Expected to find testKey in env's blackboard")
 	}
 	if value != "testValue" {
 		t.Errorf("Expected testValue, got %v", value)
 	}
 
-	// Context API and blackboard are the same store.
-	if v, ok := ctx.Get("testKey"); !ok || v != "testValue" {
-		t.Errorf("ctx.Get should read blackboard values")
+	// Env Set/Get and blackboard are the same store.
+	if v, ok := env.Get("testKey"); !ok || v != "testValue" {
+		t.Errorf("env.Get should read blackboard values")
 	}
-	ctx.Set("viaContext", 42)
-	if v, ok := bb.Get("viaContext"); !ok || v != 42 {
-		t.Errorf("ctx.Set should write through to the shared blackboard")
+	env.Set("viaEnv", 42)
+	if v, ok := bb.Get("viaEnv"); !ok || v != 42 {
+		t.Errorf("env.Set should write through to the shared blackboard")
 	}
 
 	bb.Set("newKey", "newValue")
-	value, ok = ctxBB.Get("newKey")
+	value, ok = envBB.Get("newKey")
 	if !ok {
 		t.Errorf("Expected to find newKey after updating original blackboard")
 	}
@@ -141,12 +141,12 @@ func TestBlackboardWithContext(t *testing.T) {
 }
 
 func TestWithBlackboardNil(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background(), bt.WithBlackboard(nil))
-	if ctx.GetBlackboard() == nil {
+	env := bt.NewEnv(context.Background(), bt.WithBlackboard(nil))
+	if env.Blackboard() == nil {
 		t.Fatal("nil WithBlackboard should keep a default blackboard")
 	}
-	ctx.Set("x", 1)
-	if !ctx.Has("x") {
+	env.Set("x", 1)
+	if !env.Has("x") {
 		t.Fatal("default blackboard should work after nil option")
 	}
 }

@@ -20,9 +20,10 @@ import "github.com/ratlabs-io/bt-go/bt"
 
 | Concept | Role |
 |--------|------|
-| **Behavior** | Any node: `Tick(ctx) → Success \| Failure \| Running` |
-| **BehaviorContext** | Per-run environment: cancellation + blackboard data |
-| **Blackboard** | Hierarchical, mutex-protected key-value store |
+| **Behavior** | Any node: `Tick(env) → Success \| Failure \| Running` |
+| **Env** | Per-tick environment (not a `context.Context`) |
+| **Blackboard** | Hierarchical, mutex-protected key-value store for agent state |
+| **context.Context** | Cancellation / deadlines only — via `env.Context()` |
 | **Composite** | Multi-child control flow (`Sequence`, `Selector`, `Parallel`, …) |
 | **Decorator** | Single-child wrapper (`Inverter`, `Repeater`, …) |
 | **TreeRunner** | Ticks a root on a fixed interval until cancelled |
@@ -33,22 +34,32 @@ import "github.com/ratlabs-io/bt-go/bt"
 - `Failure` — work failed  
 - `Running` — still in progress; tick again later  
 
-### Data and cancellation
+### Env vs context.Context
 
-There is **one** data store: the **Blackboard**.
+`Env` is **has-a**, not **is-a**, relative to stdlib context:
 
-`BehaviorContext.Set` / `Get` / `Delete` / `Has` all operate on that blackboard (optionally hierarchical via `NewBlackboardWithParent`). `Context()` exposes the underlying `context.Context` for cancellation and deadlines — used by `TreeRunner.Run`.
+| Concern | Where it lives |
+|---------|----------------|
+| Cancel, deadline, timeout | `env.Context()` → `context.Context` |
+| Mutable agent/world state | `env.Blackboard()` (or `Set` / `Get` / `Delete` / `Has`) |
+
+Do **not** put health, targets, inventory, or AI flags in `context.WithValue`. That is the classic Go anti-pattern; the blackboard is the right place for BT working memory.
 
 ```go
 parent, cancel := context.WithCancel(context.Background())
 defer cancel()
 
-ctx := bt.NewBehaviorContext(parent)
-ctx.Set("health", 100)
+env := bt.NewEnv(parent)
+env.Set("health", 100)
 
-bb := ctx.GetBlackboard()
-// bb.Get("health") == 100 — same store
+bb := env.Blackboard()
+// bb.Get("health") == 100 — same store as env.Set/Get
+
+// Long-running actions may watch:
+//   select { case <-env.Context().Done(): ... }
 ```
+
+`Env` deliberately does **not** implement `context.Context`.
 
 ### Reactive vs memory composites
 
@@ -62,7 +73,7 @@ Default `Sequence` and `Selector` are **reactive**: every `Tick` starts at the *
 | `NewMemorySelector` | memory | Stick with last `Running` child until it finishes (no preemption) |
 | `NewPrioritySelector` | reactive | Alias of `NewSelector` |
 
-Memory variants expose `Reset()` and `RunningIndex()` for tests and tooling. Memory clears automatically on terminal `Success` / `Failure`.
+Memory variants expose `Reset()` and `RunningIndex()`. Memory clears automatically on terminal `Success` / `Failure`.
 
 Use **reactive** when priorities must be re-checked every tick (e.g. “abort patrol if under attack”). Use **memory** when a multi-step branch should finish without re-running expensive earlier steps.
 
@@ -77,7 +88,7 @@ Use **reactive** when priorities must be re-checked every tick (e.g. “abort pa
 | `SuccessOnOne` | ≥1 success | — | `Running` |
 | `SuccessOnAll` | all success | — | `Running` |
 
-Children share the **same** `BehaviorContext`. The blackboard is concurrent-safe; other shared mutable state in actions must be synchronized by the caller.
+Children share the **same** `Env`. The blackboard is concurrent-safe; other shared mutable state in actions must be synchronized by the caller.
 
 ## Quick start
 
@@ -93,16 +104,16 @@ import (
 
 func main() {
 	tree := bt.NewSequence(
-		bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
-			hello, ok := ctx.Get("greeting")
+		bt.NewAction(func(env bt.Env) bt.RunStatus {
+			hello, ok := env.Get("greeting")
 			if !ok {
 				return bt.Failure
 			}
 			fmt.Printf("%s ", hello.(string))
 			return bt.Success
 		}),
-		bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
-			world, ok := ctx.Get("subject")
+		bt.NewAction(func(env bt.Env) bt.RunStatus {
+			world, ok := env.Get("subject")
 			if !ok {
 				return bt.Failure
 			}
@@ -111,11 +122,11 @@ func main() {
 		}),
 	)
 
-	ctx := bt.NewBehaviorContext(context.Background())
-	ctx.Set("greeting", "Hello")
-	ctx.Set("subject", "World")
+	env := bt.NewEnv(context.Background())
+	env.Set("greeting", "Hello")
+	env.Set("subject", "World")
 
-	fmt.Println(tree.Tick(ctx)) // Success
+	fmt.Println(tree.Tick(env)) // Success
 }
 ```
 
@@ -161,8 +172,8 @@ runner := bt.NewTreeRunner(tree,
 	bt.WithCallbacks(onSuccess, onFailure, onRunning),
 )
 
-go runner.Run(ctx)   // until ctx.Context() is cancelled
-status := runner.RunOnce(ctx)
+go runner.Run(env)   // until env.Context() is cancelled
+status := runner.RunOnce(env)
 ```
 
 ### Visualization
@@ -171,7 +182,7 @@ status := runner.RunOnce(ctx)
 fmt.Print(bt.NewTreeVisualizer(tree).Visualize())
 
 rec := bt.NewStatusRecorder()
-rec.Tick(ctx, someNode)
+rec.Tick(env, someNode)
 fmt.Print(rec.Visualize(tree))
 ```
 
@@ -179,21 +190,20 @@ Custom nodes can implement `NodeVisualizer` (`VisualizeNode() string`). Composit
 
 ## Architecture notes
 
-These design choices keep the surface small and avoid common BT-library traps:
-
-1. **Single data plane** — context KV API is the blackboard; no parallel maps that can diverge (especially under `Parallel`).
-2. **No private type assertions** — `TreeRunner` and `Parallel` use only the `BehaviorContext` interface (`Context()`, shared blackboard).
-3. **Reactive by default** — `Sequence` / `Selector` restart from the first child; memory is an explicit opt-in (`NewMemorySequence` / `NewMemorySelector`), not a half-written field on the reactive types.
-4. **One reactive selector** — `PrioritySelector` is not a second algorithm; it is `Selector`.
-5. **Parallel always re-ticks** — sticky per-child completion memory made policies like `SuccessOnAll` unable to recover after a transient failure.
+1. **Env ≠ context.Context** — lifecycle and agent state are separate types and APIs.
+2. **Single data plane** — `Set`/`Get` write through to the blackboard; no parallel maps.
+3. **No private type assertions** — runners and parallel use only the `Env` interface.
+4. **Reactive by default** — memory is opt-in (`NewMemorySequence` / `NewMemorySelector`).
+5. **One reactive selector** — `PrioritySelector` is an alias for `Selector`.
+6. **Parallel always re-ticks** — every child every tick; policies like `SuccessOnAll` can recover.
 
 ## Best practices
 
 - Keep leaves small; compose with Sequence/Selector rather than giant actions.
-- Store agent state on the blackboard; avoid hidden globals.
+- Store agent state on the blackboard; never in `context.WithValue`.
 - Conditions should be cheap — they may run every tick on reactive parents.
 - Under `Parallel`, only rely on the blackboard (or your own locks) for shared data.
-- Use `TreeVisualizer` when debugging structure; use `StatusRecorder` for light status capture.
+- Blocking actions should honor `env.Context().Done()` if they might run long.
 
 ## Development
 

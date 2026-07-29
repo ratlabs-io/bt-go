@@ -10,11 +10,11 @@ import (
 
 func TestMemorySequenceSkipsCompletedPrefix(t *testing.T) {
 	var firstCalls, secondCalls int
-	first := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	first := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		firstCalls++
 		return bt.Success
 	})
-	second := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	second := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		secondCalls++
 		if secondCalls < 2 {
 			return bt.Running
@@ -23,9 +23,9 @@ func TestMemorySequenceSkipsCompletedPrefix(t *testing.T) {
 	})
 
 	seq := bt.NewMemorySequence(first, second)
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 
-	if seq.Tick(ctx) != bt.Running {
+	if seq.Tick(env) != bt.Running {
 		t.Fatal("expected Running on first tick")
 	}
 	if firstCalls != 1 {
@@ -35,7 +35,7 @@ func TestMemorySequenceSkipsCompletedPrefix(t *testing.T) {
 		t.Fatalf("RunningIndex = %d, want 1", seq.RunningIndex())
 	}
 
-	if seq.Tick(ctx) != bt.Success {
+	if seq.Tick(env) != bt.Success {
 		t.Fatal("expected Success on second tick")
 	}
 	if firstCalls != 1 {
@@ -51,12 +51,12 @@ func TestMemorySequenceSkipsCompletedPrefix(t *testing.T) {
 
 func TestMemorySequenceFailureResets(t *testing.T) {
 	var firstCalls int
-	first := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	first := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		firstCalls++
 		return bt.Success
 	})
 	failOnce := 0
-	second := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	second := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		failOnce++
 		if failOnce == 1 {
 			return bt.Running
@@ -65,12 +65,12 @@ func TestMemorySequenceFailureResets(t *testing.T) {
 	})
 
 	seq := bt.NewMemorySequence(first, second)
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 
-	if seq.Tick(ctx) != bt.Running {
+	if seq.Tick(env) != bt.Running {
 		t.Fatal("expected Running")
 	}
-	if seq.Tick(ctx) != bt.Failure {
+	if seq.Tick(env) != bt.Failure {
 		t.Fatal("expected Failure")
 	}
 	if seq.RunningIndex() != 0 {
@@ -79,13 +79,13 @@ func TestMemorySequenceFailureResets(t *testing.T) {
 
 	// After failure, sequence restarts from the first child.
 	failOnce = 0
-	secondOK := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	secondOK := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		return bt.Success
 	})
 	// Replace second via new sequence to verify restart path cleanly.
 	seq = bt.NewMemorySequence(first, secondOK)
 	firstCalls = 0
-	if seq.Tick(ctx) != bt.Success {
+	if seq.Tick(env) != bt.Success {
 		t.Fatal("expected Success after rebuild")
 	}
 	if firstCalls != 1 {
@@ -95,17 +95,17 @@ func TestMemorySequenceFailureResets(t *testing.T) {
 
 func TestMemorySequenceReset(t *testing.T) {
 	var firstCalls int
-	first := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	first := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		firstCalls++
 		return bt.Success
 	})
-	second := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	second := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		return bt.Running
 	})
 	seq := bt.NewMemorySequence(first, second)
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 
-	_ = seq.Tick(ctx)
+	_ = seq.Tick(env)
 	if seq.RunningIndex() != 1 {
 		t.Fatal("expected to be parked on second child")
 	}
@@ -113,18 +113,18 @@ func TestMemorySequenceReset(t *testing.T) {
 	if seq.RunningIndex() != 0 {
 		t.Fatal("Reset should clear index")
 	}
-	_ = seq.Tick(ctx)
+	_ = seq.Tick(env)
 	if firstCalls != 2 {
 		t.Fatalf("after Reset, first child should run again, calls=%d", firstCalls)
 	}
 }
 
 func TestMemorySequenceEmptyAndNil(t *testing.T) {
-	ctx := bt.NewBehaviorContext(context.Background())
-	if bt.NewMemorySequence().Tick(ctx) != bt.Success {
+	env := bt.NewEnv(context.Background())
+	if bt.NewMemorySequence().Tick(env) != bt.Success {
 		t.Error("empty memory sequence should Success")
 	}
-	if bt.NewMemorySequence(nil).Tick(ctx) != bt.Failure {
+	if bt.NewMemorySequence(nil).Tick(env) != bt.Failure {
 		t.Error("nil child should Failure")
 	}
 }
@@ -133,14 +133,14 @@ func TestMemorySelectorSticksWithoutPreempt(t *testing.T) {
 	// Contrast with reactive Selector: high priority does NOT preempt memory.
 	highReady := false
 	var highCalls, lowCalls int
-	high := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	high := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		highCalls++
 		if highReady {
 			return bt.Success
 		}
 		return bt.Failure
 	})
-	low := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	low := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		lowCalls++
 		if lowCalls < 3 {
 			return bt.Running
@@ -149,9 +149,9 @@ func TestMemorySelectorSticksWithoutPreempt(t *testing.T) {
 	})
 
 	sel := bt.NewMemorySelector(high, low)
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 
-	if sel.Tick(ctx) != bt.Running {
+	if sel.Tick(env) != bt.Running {
 		t.Fatal("expected Running (low)")
 	}
 	if sel.RunningIndex() != 1 {
@@ -160,7 +160,7 @@ func TestMemorySelectorSticksWithoutPreempt(t *testing.T) {
 
 	// High becomes ready, but memory selector must stay on low.
 	highReady = true
-	if sel.Tick(ctx) != bt.Running {
+	if sel.Tick(env) != bt.Running {
 		t.Fatal("expected still Running on low")
 	}
 	if highCalls != 1 {
@@ -170,7 +170,7 @@ func TestMemorySelectorSticksWithoutPreempt(t *testing.T) {
 		t.Fatalf("lowCalls=%d, want 2", lowCalls)
 	}
 
-	if sel.Tick(ctx) != bt.Success {
+	if sel.Tick(env) != bt.Success {
 		t.Fatal("expected low to eventually Success")
 	}
 	if sel.RunningIndex() != -1 {
@@ -180,31 +180,31 @@ func TestMemorySelectorSticksWithoutPreempt(t *testing.T) {
 
 func TestMemorySelectorFailureContinues(t *testing.T) {
 	var midCalls, lastCalls int
-	mid := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	mid := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		midCalls++
 		if midCalls == 1 {
 			return bt.Running
 		}
 		return bt.Failure
 	})
-	last := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	last := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		lastCalls++
 		return bt.Success
 	})
 
 	// first always fails so we land on mid.
-	first := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	first := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		return bt.Failure
 	})
 	sel := bt.NewMemorySelector(first, mid, last)
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 
-	if sel.Tick(ctx) != bt.Running {
+	if sel.Tick(env) != bt.Running {
 		t.Fatal("expected Running on mid")
 	}
 	// mid fails → try last without re-running first? Actually after mid fails we continue loop
 	// and first is not re-tried in the same tick; next tick after Success/Failure of whole node.
-	if sel.Tick(ctx) != bt.Success {
+	if sel.Tick(env) != bt.Success {
 		t.Fatal("expected Success from last after mid fails")
 	}
 	if lastCalls != 1 {
@@ -214,11 +214,11 @@ func TestMemorySelectorFailureContinues(t *testing.T) {
 
 func TestMemorySelectorAllFail(t *testing.T) {
 	sel := bt.NewMemorySelector(
-		bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Failure }),
-		bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Failure }),
+		bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Failure }),
+		bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Failure }),
 	)
-	ctx := bt.NewBehaviorContext(context.Background())
-	if sel.Tick(ctx) != bt.Failure {
+	env := bt.NewEnv(context.Background())
+	if sel.Tick(env) != bt.Failure {
 		t.Fatal("expected Failure")
 	}
 	if sel.RunningIndex() != -1 {
@@ -228,17 +228,17 @@ func TestMemorySelectorAllFail(t *testing.T) {
 
 func TestMemorySelectorReset(t *testing.T) {
 	var highCalls int
-	high := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	high := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		highCalls++
 		return bt.Failure
 	})
-	low := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+	low := bt.NewAction(func(env bt.Env) bt.RunStatus {
 		return bt.Running
 	})
 	sel := bt.NewMemorySelector(high, low)
-	ctx := bt.NewBehaviorContext(context.Background())
+	env := bt.NewEnv(context.Background())
 
-	_ = sel.Tick(ctx)
+	_ = sel.Tick(env)
 	if sel.RunningIndex() != 1 {
 		t.Fatal("expected parked on low")
 	}
@@ -246,7 +246,7 @@ func TestMemorySelectorReset(t *testing.T) {
 	if sel.RunningIndex() != -1 {
 		t.Fatal("Reset should idle")
 	}
-	_ = sel.Tick(ctx)
+	_ = sel.Tick(env)
 	if highCalls != 2 {
 		t.Fatalf("after Reset high should run again, calls=%d", highCalls)
 	}
@@ -255,11 +255,11 @@ func TestMemorySelectorReset(t *testing.T) {
 func TestMemoryVsReactiveSequence(t *testing.T) {
 	// Side-by-side: same children, different call counts.
 	makeChildren := func(firstCalls, secondCalls *int) (bt.Behavior, bt.Behavior) {
-		first := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+		first := bt.NewAction(func(env bt.Env) bt.RunStatus {
 			*firstCalls++
 			return bt.Success
 		})
-		second := bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus {
+		second := bt.NewAction(func(env bt.Env) bt.RunStatus {
 			*secondCalls++
 			if *secondCalls < 2 {
 				return bt.Running
@@ -277,11 +277,11 @@ func TestMemoryVsReactiveSequence(t *testing.T) {
 	f2, s2 := makeChildren(&mf, &ms)
 	memory := bt.NewMemorySequence(f2, s2)
 
-	ctx := bt.NewBehaviorContext(context.Background())
-	_ = reactive.Tick(ctx)
-	_ = reactive.Tick(ctx)
-	_ = memory.Tick(ctx)
-	_ = memory.Tick(ctx)
+	env := bt.NewEnv(context.Background())
+	_ = reactive.Tick(env)
+	_ = reactive.Tick(env)
+	_ = memory.Tick(env)
+	_ = memory.Tick(env)
 
 	if rf != 2 {
 		t.Errorf("reactive first calls = %d, want 2", rf)
@@ -293,8 +293,8 @@ func TestMemoryVsReactiveSequence(t *testing.T) {
 
 func TestMemoryNodesVisualize(t *testing.T) {
 	tree := bt.NewSequence(
-		bt.NewMemorySequence(bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Success })),
-		bt.NewMemorySelector(bt.NewAction(func(ctx bt.BehaviorContext) bt.RunStatus { return bt.Success })),
+		bt.NewMemorySequence(bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Success })),
+		bt.NewMemorySelector(bt.NewAction(func(env bt.Env) bt.RunStatus { return bt.Success })),
 	)
 	out := bt.NewTreeVisualizer(tree).Visualize()
 	if !strings.Contains(out, "MemorySequence") || !strings.Contains(out, "MemorySelector") {

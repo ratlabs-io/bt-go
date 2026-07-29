@@ -33,11 +33,11 @@ func NewInverter(child Behavior) *Inverter {
 }
 
 // Tick runs the child and inverts terminal statuses.
-func (i *Inverter) Tick(ctx BehaviorContext) RunStatus {
+func (i *Inverter) Tick(env Env) RunStatus {
 	if i.Child == nil {
 		return Failure
 	}
-	switch status := i.Child.Tick(ctx); status {
+	switch status := i.Child.Tick(env); status {
 	case Success:
 		return Failure
 	case Failure:
@@ -68,7 +68,7 @@ func NewRepeater(child Behavior, count int) *Repeater {
 }
 
 // Tick executes the child and tracks successful completions toward Count.
-func (r *Repeater) Tick(ctx BehaviorContext) RunStatus {
+func (r *Repeater) Tick(env Env) RunStatus {
 	if r.Child == nil {
 		return Failure
 	}
@@ -78,7 +78,7 @@ func (r *Repeater) Tick(ctx BehaviorContext) RunStatus {
 		return Success
 	}
 
-	status := r.Child.Tick(ctx)
+	status := r.Child.Tick(env)
 	if status == Running {
 		return Running
 	}
@@ -107,11 +107,11 @@ func NewUntilSuccess(child Behavior) *UntilSuccess {
 }
 
 // Tick returns Success only when the child succeeds; otherwise Running.
-func (u *UntilSuccess) Tick(ctx BehaviorContext) RunStatus {
+func (u *UntilSuccess) Tick(env Env) RunStatus {
 	if u.Child == nil {
 		return Failure
 	}
-	if u.Child.Tick(ctx) == Success {
+	if u.Child.Tick(env) == Success {
 		return Success
 	}
 	return Running
@@ -129,11 +129,11 @@ func NewUntilFailure(child Behavior) *UntilFailure {
 }
 
 // Tick returns Success when the child fails; otherwise Running.
-func (u *UntilFailure) Tick(ctx BehaviorContext) RunStatus {
+func (u *UntilFailure) Tick(env Env) RunStatus {
 	if u.Child == nil {
 		return Failure
 	}
-	if u.Child.Tick(ctx) == Failure {
+	if u.Child.Tick(env) == Failure {
 		return Success
 	}
 	return Running
