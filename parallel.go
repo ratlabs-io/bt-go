@@ -46,6 +46,8 @@ func (p ParallelPolicy) String() string {
 // thread-safe; other shared mutable state in actions must be synchronized.
 //
 // Every child is ticked on every Parallel.Tick (no sticky completion memory).
+// When the policy returns Success or Failure while some children are still
+// Running, those residual Running children are Halted for this tick.
 type Parallel struct {
 	Composite
 	policy     ParallelPolicy
@@ -101,7 +103,9 @@ func (p *Parallel) tickSequential(env Env) RunStatus {
 		}
 		statuses[i] = child.Tick(env)
 	}
-	return evaluateParallelPolicy(p.policy, statuses)
+	result := evaluateParallelPolicy(p.policy, statuses)
+	p.haltResidualRunning(env, statuses, result)
+	return result
 }
 
 func (p *Parallel) tickConcurrent(env Env) RunStatus {
@@ -122,7 +126,22 @@ func (p *Parallel) tickConcurrent(env Env) RunStatus {
 	}
 
 	wg.Wait()
-	return evaluateParallelPolicy(p.policy, statuses)
+	result := evaluateParallelPolicy(p.policy, statuses)
+	p.haltResidualRunning(env, statuses, result)
+	return result
+}
+
+// haltResidualRunning aborts children still Running when the policy has already
+// decided Success or Failure for this tick (e.g. RequireOne with one Success).
+func (p *Parallel) haltResidualRunning(env Env, statuses []RunStatus, result RunStatus) {
+	if result == Running {
+		return
+	}
+	for i, st := range statuses {
+		if st == Running && i < len(p.Children) {
+			Halt(env, p.Children[i])
+		}
+	}
 }
 
 // Halt aborts every child.

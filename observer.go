@@ -4,7 +4,8 @@ package bt
 type TickObserver func(node Behavior, status RunStatus)
 
 // Observing wraps a child and reports each tick result to AfterTick.
-// Only this node is observed — wrap additional nodes to observe deeper.
+// Only this node is observed — wrap additional nodes to observe deeper,
+// or use Instrument / InstrumentRecorder for the whole tree.
 type Observing struct {
 	BaseDecorator
 	// AfterTick is invoked after the child is ticked (including when child is nil → Failure).

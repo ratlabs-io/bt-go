@@ -44,8 +44,8 @@ func TestMemorySequenceSkipsCompletedPrefix(t *testing.T) {
 	if secondCalls != 2 {
 		t.Fatalf("second child calls = %d, want 2", secondCalls)
 	}
-	if seq.RunningIndex() != 0 {
-		t.Fatalf("RunningIndex should reset after Success, got %d", seq.RunningIndex())
+	if seq.RunningIndex() != -1 {
+		t.Fatalf("RunningIndex should be idle (-1) after Success, got %d", seq.RunningIndex())
 	}
 }
 
@@ -73,8 +73,8 @@ func TestMemorySequenceFailureResets(t *testing.T) {
 	if seq.Tick(env) != bt.Failure {
 		t.Fatal("expected Failure")
 	}
-	if seq.RunningIndex() != 0 {
-		t.Fatal("Failure should reset running index")
+	if seq.RunningIndex() != -1 {
+		t.Fatal("Failure should idle running index (-1)")
 	}
 
 	// After failure, sequence restarts from the first child.
@@ -110,8 +110,8 @@ func TestMemorySequenceReset(t *testing.T) {
 		t.Fatal("expected to be parked on second child")
 	}
 	seq.Reset()
-	if seq.RunningIndex() != 0 {
-		t.Fatal("Reset should clear index")
+	if seq.RunningIndex() != -1 {
+		t.Fatal("Reset should idle index (-1)")
 	}
 	_ = seq.Tick(env)
 	if firstCalls != 2 {

@@ -26,9 +26,14 @@ func (c *Condition) Tick(env Env) RunStatus {
 // Conditional runs Action only when Condition succeeds.
 // If the condition fails, Conditional returns Failure without ticking Action.
 // Condition must be non-nil; a nil Action is treated as Failure when selected.
+//
+// When Condition fails after Action was Running, Action is Halted.
+// Halt propagates to Action when it was left Running.
 type Conditional struct {
 	Condition *Condition
 	Action    Behavior
+	// actionRunning is true when the last Tick of Action returned Running.
+	actionRunning bool
 }
 
 // NewConditional creates a Conditional with the given condition and action.
@@ -42,10 +47,25 @@ func NewConditional(condition *Condition, action Behavior) *Conditional {
 // Tick checks the condition, then optionally runs the action.
 func (c *Conditional) Tick(env Env) RunStatus {
 	if c.Condition == nil || c.Condition.Tick(env) != Success {
+		if c.actionRunning {
+			Halt(env, c.Action)
+			c.actionRunning = false
+		}
 		return Failure
 	}
 	if c.Action == nil {
+		c.actionRunning = false
 		return Failure
 	}
-	return c.Action.Tick(env)
+	status := c.Action.Tick(env)
+	c.actionRunning = status == Running
+	return status
+}
+
+// Halt aborts Action if it was left Running.
+func (c *Conditional) Halt(env Env) {
+	if c.actionRunning {
+		Halt(env, c.Action)
+		c.actionRunning = false
+	}
 }

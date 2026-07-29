@@ -192,7 +192,7 @@ func (tv *TreeVisualizer) getNodeName(node Behavior) string {
 //	rec := bt.NewStatusRecorder()
 //	status := rec.Tick(env, root) // records root only
 //
-// For full-tree status maps, wrap individual leaves or use a custom decorator.
+// For full-tree status maps, use InstrumentRecorder (or wrap leaves with Observing).
 type StatusRecorder struct {
 	statusMap map[Behavior]RunStatus
 }

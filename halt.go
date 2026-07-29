@@ -1,10 +1,11 @@
 package bt
 
 // Haltable is implemented by nodes that need cleanup when a parent aborts them
-// without delivering a terminal Success/Failure tick (preemption, cancel, Reset).
+// without delivering a terminal Success/Failure tick (preemption, cancel).
 //
 // Halt must be safe to call when the node is not running (no-op).
 // Composites that track a running child should Halt that child and clear memory.
+// Reset does not Halt — call Halt explicitly when aborting mid-run.
 type Haltable interface {
 	Halt(env Env)
 }

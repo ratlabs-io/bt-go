@@ -29,6 +29,30 @@ func TestGetAsAndMustGet(t *testing.T) {
 	}
 }
 
+func TestTypedKeys(t *testing.T) {
+	const Health bt.Key[int] = "health"
+	const Name bt.Key[string] = "name"
+	env := bt.NewEnv(context.Background())
+
+	bt.SetKey(env, Health, 99)
+	bt.SetKey(env, Name, "hero")
+
+	h, ok := bt.GetKey(env, Health)
+	if !ok || h != 99 {
+		t.Fatalf("GetKey = %v, %v", h, ok)
+	}
+	if bt.MustGetKey(env, Name) != "hero" {
+		t.Fatal("MustGetKey")
+	}
+	// Same blackboard as string API.
+	if v, ok := bt.GetAs[int](env, "health"); !ok || v != 99 {
+		t.Fatal("Key and string APIs share the store")
+	}
+	if Health.String() != "health" {
+		t.Fatal("Key.String")
+	}
+}
+
 func TestMustGetPanics(t *testing.T) {
 	env := bt.NewEnv(context.Background())
 	defer func() {

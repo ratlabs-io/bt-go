@@ -18,8 +18,16 @@
 //
 // # Abort (Halt)
 //
-// When a reactive parent preempts a Running child, or TreeRunner cancels,
+// When a parent abandons a Running child (preemption, branch switch, cancel),
 // Halt is called on Haltable nodes so they can clean up (see AbortHook).
+// Control-flow nodes that can abandon work (Sequence, Selector, memory
+// composites, Parallel, BinarySelector, Switch, Conditional, decorators)
+// implement Haltable and forward Halt to the abandoned child.
+//
+// # Observation
+//
+// NewObserving wraps a single node. Instrument / InstrumentRecorder wrap an
+// entire tree so every tick reports to a callback or StatusRecorder.
 package bt
 
 // RunStatus is the result of ticking a behavior node.

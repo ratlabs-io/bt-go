@@ -10,6 +10,7 @@ package bt
 // Sequence does not remember progress for control flow; each Tick starts at the
 // first child. It does track the last Running child so that if an earlier sibling
 // later fails (or the sequence is Halted), the abandoned child receives Halt.
+// Children that already returned a terminal status this tick are not Halted.
 // For resume-from-running control flow, use NewMemorySequence.
 type Sequence struct {
 	Composite
@@ -33,8 +34,10 @@ func (s *Sequence) Tick(env Env) RunStatus {
 		}
 		status := child.Tick(env)
 		if status == Running {
-			if s.lastRunning >= 0 && s.lastRunning != i {
-				// Should be rare in a reactive sequence; still safe.
+			// Halt a previously Running later sibling that this tick never reached
+			// (earlier child is now Running). Do not Halt lastRunning < i: those
+			// children were re-ticked this frame and already returned Success.
+			if s.lastRunning > i {
 				Halt(env, s.Children[s.lastRunning])
 			}
 			s.lastRunning = i
@@ -47,6 +50,10 @@ func (s *Sequence) Tick(env Env) RunStatus {
 			}
 			s.lastRunning = -1
 			return Failure
+		}
+		// Success: if this was the tracked Running child, it completed cleanly.
+		if s.lastRunning == i {
+			s.lastRunning = -1
 		}
 	}
 	s.lastRunning = -1

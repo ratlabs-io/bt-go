@@ -1,5 +1,23 @@
 # Changelog
 
+## [v1.6.0] — 2026-07-29
+
+### Breaking
+- `MemorySequence.RunningIndex()` is **-1** when idle (was `0`). `Reset` also idles to `-1`. Matches `MemorySelector`.
+
+### Fixed
+- Reactive `Sequence` no longer Halts a child that already returned Success this tick when a later sibling becomes Running.
+- `BinarySelector`, `Switch`, and `Conditional` track Running branches and Halt on abandon / parent Halt.
+- `Parallel` Halts residual Running children when the policy returns Success or Failure.
+- `halt.go` docs: Reset does not Halt.
+
+### Added
+- `Instrument` / `InstrumentRecorder` — tree-wide observation without mutating the original tree.
+- `Key[T]`, `SetKey`, `GetKey`, `MustGetKey` — typed keys on the same blackboard.
+- Godoc `Example*` tests for Sequence, MemorySequence, AbortHook, GetAs, SetKey, Parallel, Instrument.
+- Halt matrix tests (`halt_test.go`).
+- ADRs 0006–0008; CONTEXT updated.
+
 ## [v1.5.0] — 2026-07-29
 
 ### Breaking

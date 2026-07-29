@@ -7,7 +7,7 @@ A small, composable **behavior tree** library for Go.
 ## Install
 
 ```bash
-go get github.com/ratlabs-io/bt-go@v1.5.0
+go get github.com/ratlabs-io/bt-go@v1.6.0
 ```
 
 ```go
@@ -23,14 +23,14 @@ import "github.com/ratlabs-io/bt-go"
 | **Env** | Per-tick environment (**not** a `context.Context`) |
 | **Blackboard** | Hierarchical KV store for agent/world state |
 | **context.Context** | Cancel/deadline only — `env.Context()` |
-| **Halt** | Abort cleanup when a parent preempts or the runner cancels |
+| **Halt** | Abort cleanup when a parent abandons Running work |
 
 ### Env vs context.Context
 
 | Concern | API |
 |---------|-----|
 | Cancel / deadline | `env.Context()` |
-| Agent state | `env.Blackboard()` or `Set`/`Get`/`GetAs[T]` |
+| Agent state | `env.Blackboard()` or `Set`/`Get`/`GetAs[T]` / `Key[T]` |
 
 Do **not** put health/targets in `context.WithValue`. Use the blackboard.
 
@@ -38,6 +38,9 @@ Do **not** put health/targets in `context.WithValue`. Use the blackboard.
 env := bt.NewEnv(parentCtx)
 env.Set("health", 100)
 h, ok := bt.GetAs[int](env, "health")
+
+const Health bt.Key[int] = "health"
+bt.SetKey(env, Health, 100)
 ```
 
 ### Reactive vs memory
@@ -56,7 +59,8 @@ h, ok := bt.GetAs[int](env, "health")
 | `NewParallel` | Sequential ticks (default, deterministic) |
 | `NewConcurrentParallel` | One goroutine per child |
 
-Policies: `RequireOne`, `RequireAll`, `SuccessOnOne`, `SuccessOnAll`.
+Policies: `RequireOne`, `RequireAll`, `SuccessOnOne`, `SuccessOnAll`.  
+When a policy returns Success/Failure while some children are still Running, those residual children are **Halted**.
 
 ### Halt and abort hooks
 
@@ -65,9 +69,18 @@ branch := bt.NewAbortHook(longRunningSubtree, func(env bt.Env) {
     // stop pathing, clear target, …
 })
 // When a higher-priority Selector branch wins, Halt runs OnAbort.
+// Same for Sequence earlier-sibling failure, BinarySelector/Switch flips,
+// Conditional condition fail, Parallel residual Running, runner cancel.
 ```
 
 `TreeRunner.Run` Halts the tree when `env.Context()` is cancelled. In-flight `Tick` bodies are not interrupted — long actions should watch `env.Context().Done()`.
+
+### Observation
+
+| API | Scope |
+|-----|--------|
+| `NewObserving` | One node |
+| `Instrument` / `InstrumentRecorder` | Whole tree (rebuilds wrappers; original unchanged) |
 
 ## Quick start
 
@@ -87,6 +100,7 @@ Examples:
 
 - [`examples/hello`](./examples/hello) — minimal Sequence  
 - [`examples/agent`](./examples/agent) — flee / memory combat / patrol  
+- Godoc `Example*` tests in the package (Sequence, Memory, AbortHook, Keys, Instrument, …)
 
 ## Node catalog
 
@@ -98,9 +112,9 @@ Examples:
 
 **Runner:** `NewTreeRunner` + `WithTickRate` / `WithCallbacks`  
 
-**Typed data:** `GetAs[T]`, `MustGet[T]`  
+**Typed data:** `GetAs[T]`, `MustGet[T]`, `Key[T]`, `SetKey` / `GetKey` / `MustGetKey`  
 
-**Debug:** `NewTreeVisualizer`, `NewStatusRecorder`, `NewObserving`  
+**Debug:** `NewTreeVisualizer`, `NewStatusRecorder`, `NewObserving`, `Instrument`, `InstrumentRecorder`  
 
 ## Development
 

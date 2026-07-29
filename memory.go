@@ -8,10 +8,10 @@ package bt
 //
 // Memory is cleared when the sequence returns Success or Failure (including
 // nil-child failure). Call Reset to clear memory without ticking; Halt aborts
-// the current child and resets.
+// the current child and resets. Idle runningIndex is -1 (Halt is a no-op).
 type MemorySequence struct {
 	Composite
-	// runningIndex is the child to resume from. 0 means start (or resume) at first.
+	// runningIndex is the child to resume from, or -1 when idle.
 	runningIndex int
 }
 
@@ -19,32 +19,37 @@ type MemorySequence struct {
 func NewMemorySequence(children ...Behavior) *MemorySequence {
 	return &MemorySequence{
 		Composite:    Composite{Children: children},
-		runningIndex: 0,
+		runningIndex: -1,
 	}
 }
 
 // Reset clears resume state so the next Tick starts at the first child.
 // It does not Halt the current child; call Halt when aborting mid-run.
 func (s *MemorySequence) Reset() {
-	s.runningIndex = 0
+	s.runningIndex = -1
 }
 
-// RunningIndex returns the child index that will be resumed on the next Tick
-// (0 when idle / after a terminal status).
+// RunningIndex returns the child index that will be resumed on the next Tick,
+// or -1 when idle / after a terminal status.
 func (s *MemorySequence) RunningIndex() int {
 	return s.runningIndex
 }
 
 // Tick executes children from the remembered index. See type docs.
 func (s *MemorySequence) Tick(env Env) RunStatus {
-	if s.runningIndex < 0 || s.runningIndex > len(s.Children) {
-		s.runningIndex = 0
+	start := 0
+	if s.runningIndex >= 0 {
+		if s.runningIndex >= len(s.Children) {
+			s.runningIndex = -1
+		} else {
+			start = s.runningIndex
+		}
 	}
 
-	for i := s.runningIndex; i < len(s.Children); i++ {
+	for i := start; i < len(s.Children); i++ {
 		child := s.Children[i]
 		if child == nil {
-			s.runningIndex = 0
+			s.runningIndex = -1
 			return Failure
 		}
 		status := child.Tick(env)
@@ -53,14 +58,15 @@ func (s *MemorySequence) Tick(env Env) RunStatus {
 			s.runningIndex = i
 			return Running
 		case Failure:
-			s.runningIndex = 0
+			s.runningIndex = -1
 			return Failure
 		case Success:
-			s.runningIndex = i + 1
+			// Continue; park only if we return Running later this tick.
+			s.runningIndex = -1
 		}
 	}
 
-	s.runningIndex = 0
+	s.runningIndex = -1
 	return Success
 }
 
@@ -69,7 +75,7 @@ func (s *MemorySequence) Halt(env Env) {
 	if s.runningIndex >= 0 && s.runningIndex < len(s.Children) {
 		Halt(env, s.Children[s.runningIndex])
 	}
-	s.runningIndex = 0
+	s.runningIndex = -1
 }
 
 // MemorySelector is a Selector that remembers which child was Running.
