@@ -1,19 +1,23 @@
 package bt
 
-// KeyFunc is a function type that takes a BehaviorContext and returns a string key used for selecting a behavior in a Switch node.
+// KeyFunc derives a case key from the context for Switch selection.
 type KeyFunc func(ctx BehaviorContext) string
 
-// Switch represents a control node in a behavior tree that selects one of multiple child behaviors to execute based on a key.
-// The key is determined by a provided function, and behaviors are mapped to specific keys with a default behavior as a fallback.
+// Switch selects a child by a dynamic string key.
+//
+// KeyFunc is evaluated every Tick. If Cases[key] exists it is ticked;
+// otherwise Default is ticked. If neither matches, Switch returns Failure.
 type Switch struct {
-	KeyFunc KeyFunc             // KeyFunc is the function used to determine the selection key from the context.
-	Cases   map[string]Behavior // Cases maps keys to specific behaviors to be executed.
-	Default Behavior            // Default is the fallback behavior if no case matches the key.
+	KeyFunc KeyFunc
+	Cases   map[string]Behavior
+	Default Behavior
 }
 
-// NewSwitch creates a new Switch behavior with the given key function, cases, and default behavior.
-// The key function determines which behavior to execute based on the context, selecting from the provided cases or falling back to the default.
+// NewSwitch creates a Switch. cases may be nil (only Default will run).
 func NewSwitch(keyFunc KeyFunc, cases map[string]Behavior, defaultBehavior Behavior) *Switch {
+	if cases == nil {
+		cases = map[string]Behavior{}
+	}
 	return &Switch{
 		KeyFunc: keyFunc,
 		Cases:   cases,
@@ -21,12 +25,16 @@ func NewSwitch(keyFunc KeyFunc, cases map[string]Behavior, defaultBehavior Behav
 	}
 }
 
-// Tick executes the Switch node's logic using the given BehaviorContext.
-// It determines the key from the context, selects the corresponding behavior from the cases, or uses the default behavior if no match is found.
-// If no behavior is selected and no default is provided, it returns Failure.
+// Tick selects and runs the matching case or default.
 func (s *Switch) Tick(ctx BehaviorContext) RunStatus {
+	if s.KeyFunc == nil {
+		if s.Default != nil {
+			return s.Default.Tick(ctx)
+		}
+		return Failure
+	}
 	key := s.KeyFunc(ctx)
-	if behavior, ok := s.Cases[key]; ok {
+	if behavior, ok := s.Cases[key]; ok && behavior != nil {
 		return behavior.Tick(ctx)
 	}
 	if s.Default != nil {

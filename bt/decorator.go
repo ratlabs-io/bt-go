@@ -1,51 +1,43 @@
 package bt
 
-// Decorator is a base interface for all decorator nodes in a behavior tree.
-// Decorators modify the behavior of their child node by either conditioning
-// when it runs or transforming its return status.
+// Decorator wraps a single child and alters when it runs or what status it reports.
 type Decorator interface {
 	Behavior
 	SetChild(child Behavior)
 	GetChild() Behavior
 }
 
-// BaseDecorator provides a common implementation for decorator nodes.
+// BaseDecorator holds the child pointer shared by concrete decorators.
 type BaseDecorator struct {
 	Child Behavior
 }
 
-// SetChild sets the child node for this decorator.
+// SetChild sets the decorated child.
 func (d *BaseDecorator) SetChild(child Behavior) {
 	d.Child = child
 }
 
-// GetChild returns the child node of this decorator.
+// GetChild returns the decorated child.
 func (d *BaseDecorator) GetChild() Behavior {
 	return d.Child
 }
 
-// Inverter is a decorator that inverts the result of its child node:
-// Success becomes Failure and vice versa. Running remains unchanged.
+// Inverter swaps Success ↔ Failure. Running is unchanged.
 type Inverter struct {
 	BaseDecorator
 }
 
-// NewInverter creates a new Inverter with the given child node.
+// NewInverter creates an Inverter around child.
 func NewInverter(child Behavior) *Inverter {
-	return &Inverter{
-		BaseDecorator: BaseDecorator{Child: child},
-	}
+	return &Inverter{BaseDecorator: BaseDecorator{Child: child}}
 }
 
-// Tick executes the child node and inverts its result.
+// Tick runs the child and inverts terminal statuses.
 func (i *Inverter) Tick(ctx BehaviorContext) RunStatus {
 	if i.Child == nil {
 		return Failure
 	}
-
-	status := i.Child.Tick(ctx)
-
-	switch status {
+	switch status := i.Child.Tick(ctx); status {
 	case Success:
 		return Failure
 	case Failure:
@@ -55,7 +47,10 @@ func (i *Inverter) Tick(ctx BehaviorContext) RunStatus {
 	}
 }
 
-// Repeater is a decorator that repeats its child node a specified number of times.
+// Repeater runs its child a fixed number of successful times.
+// Each Tick advances at most one successful child completion.
+// Failure from the child aborts and resets the counter.
+// count <= 0 means infinite (always returns Running after a successful child tick).
 type Repeater struct {
 	BaseDecorator
 	Count    int
@@ -63,19 +58,16 @@ type Repeater struct {
 	infinite bool
 }
 
-// NewRepeater creates a new Repeater with the given child node and count.
-// If count is <= 0, the repeater will run indefinitely.
+// NewRepeater creates a Repeater. count <= 0 means repeat forever.
 func NewRepeater(child Behavior, count int) *Repeater {
-	infinite := count <= 0
 	return &Repeater{
 		BaseDecorator: BaseDecorator{Child: child},
 		Count:         count,
-		counter:       0,
-		infinite:      infinite,
+		infinite:      count <= 0,
 	}
 }
 
-// Tick executes the child node repeatedly up to the specified count.
+// Tick executes the child and tracks successful completions toward Count.
 func (r *Repeater) Tick(ctx BehaviorContext) RunStatus {
 	if r.Child == nil {
 		return Failure
@@ -87,76 +79,62 @@ func (r *Repeater) Tick(ctx BehaviorContext) RunStatus {
 	}
 
 	status := r.Child.Tick(ctx)
-
 	if status == Running {
 		return Running
 	}
-
 	if status == Failure {
 		r.counter = 0
 		return Failure
 	}
 
-	// Child succeeded
 	r.counter++
 	if r.infinite || r.counter < r.Count {
 		return Running
 	}
-
 	r.counter = 0
 	return Success
 }
 
-// UntilSuccess repeats the child node until it succeeds.
+// UntilSuccess ticks the child until it returns Success.
+// Failure and Running both yield Running from the decorator.
 type UntilSuccess struct {
 	BaseDecorator
 }
 
-// NewUntilSuccess creates a new UntilSuccess decorator with the given child.
+// NewUntilSuccess creates an UntilSuccess decorator.
 func NewUntilSuccess(child Behavior) *UntilSuccess {
-	return &UntilSuccess{
-		BaseDecorator: BaseDecorator{Child: child},
-	}
+	return &UntilSuccess{BaseDecorator: BaseDecorator{Child: child}}
 }
 
-// Tick executes the child node until it succeeds.
+// Tick returns Success only when the child succeeds; otherwise Running.
 func (u *UntilSuccess) Tick(ctx BehaviorContext) RunStatus {
 	if u.Child == nil {
 		return Failure
 	}
-
-	status := u.Child.Tick(ctx)
-
-	if status == Success {
+	if u.Child.Tick(ctx) == Success {
 		return Success
 	}
-
 	return Running
 }
 
-// UntilFailure repeats the child node until it fails.
+// UntilFailure ticks the child until it returns Failure.
+// When the child fails, the decorator returns Success (the wait succeeded).
 type UntilFailure struct {
 	BaseDecorator
 }
 
-// NewUntilFailure creates a new UntilFailure decorator with the given child.
+// NewUntilFailure creates an UntilFailure decorator.
 func NewUntilFailure(child Behavior) *UntilFailure {
-	return &UntilFailure{
-		BaseDecorator: BaseDecorator{Child: child},
-	}
+	return &UntilFailure{BaseDecorator: BaseDecorator{Child: child}}
 }
 
-// Tick executes the child node until it fails.
+// Tick returns Success when the child fails; otherwise Running.
 func (u *UntilFailure) Tick(ctx BehaviorContext) RunStatus {
 	if u.Child == nil {
 		return Failure
 	}
-
-	status := u.Child.Tick(ctx)
-
-	if status == Failure {
+	if u.Child.Tick(ctx) == Failure {
 		return Success
 	}
-
 	return Running
 }

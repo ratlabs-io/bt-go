@@ -1,37 +1,38 @@
 package bt
 
-// Selector represents a behavior tree node that selects the first child that succeeds or is running.
+// Selector ticks children left-to-right until one succeeds or is still running.
+//
+// Semantics (reactive / restart-from-start each tick — classic priority order):
+//   - Success from any child → Success
+//   - Running from any child → Running
+//   - All Failure → Failure
+//
+// Earlier children have higher priority: every Tick re-evaluates from the first
+// child, so a higher-priority branch can preempt a lower one that was Running.
+// For stick-to-running-child semantics (no preemption), use NewMemorySelector.
+//
+// PrioritySelector is an alias for Selector with identical semantics.
 type Selector struct {
 	Composite
-	currentRunningIndex int
 }
 
-// NewSelector returns a new Selector with the given children.
+// NewSelector creates a Selector with the given children, in priority order.
 func NewSelector(children ...Behavior) *Selector {
 	return &Selector{
-		Composite:           Composite{Children: children},
-		currentRunningIndex: -1,
+		Composite: Composite{Children: children},
 	}
 }
 
-// Tick iterates over the child nodes with the given BehaviorContext and returns the first non-Failure status encountered.
+// Tick tries each child until one does not fail. See type docs for status rules.
 func (s *Selector) Tick(ctx BehaviorContext) RunStatus {
-	// Iterate over child nodes
-	for i, child := range s.Children {
-		// Call Tick method of child node and handle return value
+	for _, child := range s.Children {
 		if child == nil {
-			return Failure // handle nil child node
+			return Failure
 		}
 		status := child.Tick(ctx)
-		if status == Success {
-			s.currentRunningIndex = -1
-			return Success
-		} else if status == Running {
-			s.currentRunningIndex = i
-			return Running
+		if status != Failure {
+			return status
 		}
 	}
-	// No child node succeeded or is running
-	s.currentRunningIndex = -1
 	return Failure
 }

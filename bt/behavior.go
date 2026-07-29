@@ -1,21 +1,27 @@
+// Package bt is a composable behavior tree library for Go.
+//
+// A behavior tree is a hierarchy of Behavior nodes. Each tick, a node returns
+// one of Success, Failure, or Running. Leaf nodes (Action, Condition) do work;
+// composites (Sequence, Selector, Parallel, …) combine children; decorators
+// (Inverter, Repeater, …) wrap a single child.
+//
+// Shared agent state lives on a Blackboard, exposed through BehaviorContext.
+// Trees are typically ticked by a TreeRunner or by calling Behavior.Tick directly.
 package bt
 
-// RunStatus represents the possible execution states of a behavior node when it is ticked during the behavior tree traversal.
+// RunStatus is the result of ticking a behavior node.
 type RunStatus int
 
-// Key is a string type alias that represents a behavior's unique identifier within the tree.
-type Key string
-
 const (
-	// Success indicates that a behavior node has completed its task successfully.
+	// Success means the node completed its task successfully.
 	Success RunStatus = iota
-	// Failure indicates that a behavior node has encountered an error or failed to complete its task.
+	// Failure means the node failed to complete its task.
 	Failure
-	// Running indicates that a behavior node is still in progress and has not yet completed.
+	// Running means the node is still in progress and should be ticked again.
 	Running
 )
 
-// String converts a RunStatus value to its string representation for easier debugging and logging.
+// String returns a human-readable name for the status.
 func (rs RunStatus) String() string {
 	switch rs {
 	case Success:
@@ -29,15 +35,25 @@ func (rs RunStatus) String() string {
 	}
 }
 
-// Behavior defines the interface that all behavior tree nodes must implement.
-// It provides a method to execute the node's logic within the context of the tree.
+// Behavior is implemented by every node in a behavior tree.
 type Behavior interface {
-	// Tick executes the behavior node's logic using the provided context and returns its current status.
+	// Tick executes one step of the node and returns its status.
 	Tick(ctx BehaviorContext) RunStatus
 }
 
-// Composite is a base struct for behavior nodes that can have child nodes.
-// It is used to build composite behaviors like sequences, selectors, etc.
+// Composite is embedded by multi-child control nodes.
+// Children are public so callers and tools (e.g. visualizers) can inspect the tree.
 type Composite struct {
-	Children []Behavior // Children holds the list of child behavior nodes.
+	Children []Behavior
+}
+
+// GetChildren returns the composite's child nodes.
+func (c *Composite) GetChildren() []Behavior {
+	return c.Children
+}
+
+// ChildrenProvider is implemented by nodes that expose multiple children.
+// Used by tooling (visualization) without type-switching every composite.
+type ChildrenProvider interface {
+	GetChildren() []Behavior
 }

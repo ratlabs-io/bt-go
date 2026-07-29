@@ -1,14 +1,18 @@
 package bt
 
-// BinarySelector is a behavior tree node that conditionally executes one of two child nodes based on a condition.
+// BinarySelector chooses between two branches based on a condition behavior.
+//
+// If Condition returns Success, IfTrue is ticked; otherwise IfFalse is ticked.
+// Condition statuses other than Success (including Running) select IfFalse.
+// For a boolean leaf, pass a *Condition.
 type BinarySelector struct {
 	Condition Behavior
 	IfTrue    Behavior
 	IfFalse   Behavior
 }
 
-// NewBinarySelector creates a new BinarySelector with the given condition, true branch, and false branch.
-func NewBinarySelector(condition Behavior, ifTrue Behavior, ifFalse Behavior) *BinarySelector {
+// NewBinarySelector creates a BinarySelector.
+func NewBinarySelector(condition, ifTrue, ifFalse Behavior) *BinarySelector {
 	return &BinarySelector{
 		Condition: condition,
 		IfTrue:    ifTrue,
@@ -16,10 +20,16 @@ func NewBinarySelector(condition Behavior, ifTrue Behavior, ifFalse Behavior) *B
 	}
 }
 
-// Tick evaluates the condition and executes the appropriate child node based on the given BehaviorContext.
+// Tick evaluates Condition and runs the matching branch.
 func (node *BinarySelector) Tick(ctx BehaviorContext) RunStatus {
-	if node.Condition.Tick(ctx) == Success {
+	if node.Condition != nil && node.Condition.Tick(ctx) == Success {
+		if node.IfTrue == nil {
+			return Failure
+		}
 		return node.IfTrue.Tick(ctx)
+	}
+	if node.IfFalse == nil {
+		return Failure
 	}
 	return node.IfFalse.Tick(ctx)
 }

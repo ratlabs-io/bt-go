@@ -4,147 +4,125 @@ import (
 	"sync"
 )
 
-// Blackboard provides a hierarchical, thread-safe key-value store for behavior trees.
-// It can have parent blackboards for forming scopes of data.
+// Blackboard is a hierarchical, thread-safe key-value store for tree state.
+//
+// Child blackboards can see parent entries (Get/Has walk upward). Writes and
+// deletes apply only to the local blackboard, so a child can shadow a parent
+// key without mutating it.
 type Blackboard struct {
-	mu      sync.RWMutex
-	data    map[string]interface{}
-	parent  *Blackboard
-	entries map[string]bool // Records keys that are specifically set on this blackboard
+	mu     sync.RWMutex
+	data   map[string]interface{}
+	parent *Blackboard
 }
 
-// NewBlackboard creates a new Blackboard instance.
+// NewBlackboard creates an empty root blackboard.
 func NewBlackboard() *Blackboard {
 	return &Blackboard{
-		data:    make(map[string]interface{}),
-		entries: make(map[string]bool),
+		data: make(map[string]interface{}),
 	}
 }
 
-// NewBlackboardWithParent creates a new Blackboard with a parent blackboard.
+// NewBlackboardWithParent creates a blackboard that falls back to parent on miss.
 func NewBlackboardWithParent(parent *Blackboard) *Blackboard {
-	bb := NewBlackboard()
-	bb.parent = parent
-	return bb
+	return &Blackboard{
+		data:   make(map[string]interface{}),
+		parent: parent,
+	}
 }
 
-// Get retrieves a value from the blackboard.
-// It first checks the current blackboard, then falls back to parent blackboards.
+// Get retrieves a value, checking this blackboard then parents.
 func (bb *Blackboard) Get(key string) (interface{}, bool) {
 	bb.mu.RLock()
-	defer bb.mu.RUnlock()
+	value, ok := bb.data[key]
+	parent := bb.parent
+	bb.mu.RUnlock()
 
-	// Check if the key exists in the current blackboard
-	if value, ok := bb.data[key]; ok {
+	if ok {
 		return value, true
 	}
-
-	// If not found and we have a parent, check the parent
-	if bb.parent != nil {
-		return bb.parent.Get(key)
+	if parent != nil {
+		return parent.Get(key)
 	}
-
-	// Not found
 	return nil, false
 }
 
-// Set stores a value in the blackboard.
+// Set stores a value on this blackboard only.
 func (bb *Blackboard) Set(key string, value interface{}) {
 	bb.mu.Lock()
 	defer bb.mu.Unlock()
-
 	bb.data[key] = value
-	bb.entries[key] = true
 }
 
-// HasLocal checks if a key exists in this blackboard (not checking parents).
+// HasLocal reports whether key is set on this blackboard (ignoring parents).
 func (bb *Blackboard) HasLocal(key string) bool {
 	bb.mu.RLock()
 	defer bb.mu.RUnlock()
-
-	_, exists := bb.entries[key]
+	_, exists := bb.data[key]
 	return exists
 }
 
-// Has checks if a key exists in this blackboard or any parent.
+// Has reports whether key exists on this blackboard or any parent.
 func (bb *Blackboard) Has(key string) bool {
 	bb.mu.RLock()
-	defer bb.mu.RUnlock()
+	_, ok := bb.data[key]
+	parent := bb.parent
+	bb.mu.RUnlock()
 
-	if _, ok := bb.data[key]; ok {
+	if ok {
 		return true
 	}
-
-	if bb.parent != nil {
-		return bb.parent.Has(key)
+	if parent != nil {
+		return parent.Has(key)
 	}
-
 	return false
 }
 
-// Delete removes a key from this blackboard.
-// It does not affect parent blackboards.
+// Delete removes a key from this blackboard only.
 func (bb *Blackboard) Delete(key string) {
 	bb.mu.Lock()
 	defer bb.mu.Unlock()
-
 	delete(bb.data, key)
-	delete(bb.entries, key)
 }
 
-// Clear removes all entries from this blackboard.
-// It does not affect parent blackboards.
+// Clear removes all local entries. Parents are unaffected.
 func (bb *Blackboard) Clear() {
 	bb.mu.Lock()
 	defer bb.mu.Unlock()
-
 	bb.data = make(map[string]interface{})
-	bb.entries = make(map[string]bool)
 }
 
-// Entries returns all keys that are specifically set on this blackboard.
+// Entries returns keys set on this blackboard (not parents).
 func (bb *Blackboard) Entries() []string {
 	bb.mu.RLock()
 	defer bb.mu.RUnlock()
 
-	keys := make([]string, 0, len(bb.entries))
-	for k := range bb.entries {
+	keys := make([]string, 0, len(bb.data))
+	for k := range bb.data {
 		keys = append(keys, k)
 	}
 	return keys
 }
 
-// AllEntries returns all keys accessible from this blackboard,
-// including those from parent blackboards.
+// AllEntries returns keys visible from this blackboard, including parents.
+// Local keys shadow parent keys of the same name (counted once).
 func (bb *Blackboard) AllEntries() []string {
 	bb.mu.RLock()
-	defer bb.mu.RUnlock()
-
-	// Start with our own entries
-	allKeys := make(map[string]bool)
-	for k := range bb.entries {
+	allKeys := make(map[string]bool, len(bb.data))
+	for k := range bb.data {
 		allKeys[k] = true
 	}
+	parent := bb.parent
+	bb.mu.RUnlock()
 
-	// Add parent entries
-	if bb.parent != nil {
-		parentKeys := bb.parent.AllEntries()
-		for _, k := range parentKeys {
+	if parent != nil {
+		for _, k := range parent.AllEntries() {
 			allKeys[k] = true
 		}
 	}
 
-	// Convert to slice
 	keys := make([]string, 0, len(allKeys))
 	for k := range allKeys {
 		keys = append(keys, k)
 	}
 	return keys
-}
-
-// WithBlackboard is an option for BehaviorContext to set a blackboard.
-func WithBlackboard(bb *Blackboard) func(ctx *behaviorContextImpl) {
-	return func(ctx *behaviorContextImpl) {
-		ctx.Blackboard = bb
-	}
 }

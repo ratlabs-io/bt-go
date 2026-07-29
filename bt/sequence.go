@@ -1,36 +1,35 @@
 package bt
 
-// Sequence represents a composite node in a behavior tree that executes its child nodes in order until one fails or is still running.
-// It is used to ensure a series of behaviors are performed sequentially, stopping at the first sign of failure or ongoing execution.
+// Sequence ticks children left-to-right until one fails or is still running.
+//
+// Semantics (reactive / restart-from-start each tick):
+//   - Failure from any child → Failure
+//   - Running from any child → Running
+//   - All Success → Success
+//
+// Sequence does not remember which child was running; each Tick starts at the
+// first child. For resume-from-running semantics, use NewMemorySequence.
 type Sequence struct {
-	Composite             // Composite embeds the base structure for holding child behaviors.
-	runningChildIndex int // runningChildIndex tracks the index of the currently running child, if any.
+	Composite
 }
 
-// NewSequence creates a new Sequence node with the provided child behaviors.
-// The children will be executed in the order they are provided.
+// NewSequence creates a Sequence with the given children, in order.
 func NewSequence(children ...Behavior) *Sequence {
 	return &Sequence{
-		Composite:         Composite{Children: children},
-		runningChildIndex: -1,
+		Composite: Composite{Children: children},
 	}
 }
 
-// Tick executes each child node in sequence using the given BehaviorContext.
-// It returns Failure if any child fails, Running if any child is still executing, or Success if all children succeed.
-// The state of the running child is tracked to allow resuming from the correct point on subsequent ticks.
+// Tick executes children in order. See type docs for status rules.
 func (s *Sequence) Tick(ctx BehaviorContext) RunStatus {
-	for i, child := range s.Children {
+	for _, child := range s.Children {
+		if child == nil {
+			return Failure
+		}
 		status := child.Tick(ctx)
 		if status != Success {
-			if status == Running {
-				s.runningChildIndex = i
-			} else {
-				s.runningChildIndex = -1
-			}
 			return status
 		}
 	}
-	s.runningChildIndex = -1
 	return Success
 }

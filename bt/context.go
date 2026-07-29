@@ -1,91 +1,91 @@
-// Package bt provides a synchronized context for sharing data between actions in a behavior tree.
 package bt
 
 import (
 	"context"
-	"sync"
 )
 
-// BehaviorContext defines the interface for a thread-safe context used to share data between behavior tree nodes.
-// It allows setting, getting, and deleting key-value pairs in a concurrent-safe manner.
+// BehaviorContext is the per-tick environment passed to every node.
+//
+// Data access (Set/Get/Delete/Has) is backed by a hierarchical Blackboard.
+// Context() exposes the underlying context.Context for cancellation and deadlines.
+//
+// All data methods are safe for concurrent use (via the blackboard).
 type BehaviorContext interface {
-	// Set stores a value for a given key in the context.
+	// Set stores a value under key on this context's blackboard.
 	Set(key string, value interface{})
-	// Get retrieves a value for a given key from the context, returning the value and a boolean indicating if the key was found.
+	// Get retrieves a value by key, walking parent blackboards if needed.
 	Get(key string) (value interface{}, ok bool)
-	// Delete removes a key-value pair from the context.
+	// Delete removes a key from this blackboard only (not parents).
 	Delete(key string)
-	// Has checks if a key exists in the context without retrieving the value.
+	// Has reports whether key exists on this blackboard or any parent.
 	Has(key string) bool
-	// GetBlackboard returns the blackboard associated with this context.
+	// GetBlackboard returns the blackboard used for data storage.
 	GetBlackboard() *Blackboard
+	// Context returns the underlying context.Context for cancellation/deadlines.
+	Context() context.Context
 }
 
-// behaviorContextImpl is the concrete implementation of the BehaviorContext interface.
-// It wraps a standard context.Context and provides thread-safe access to a map for storing data.
+// behaviorContextImpl is the default BehaviorContext.
 type behaviorContextImpl struct {
-	Ctx         context.Context        // Ctx holds the underlying context for cancellation and deadlines.
-	mu          sync.RWMutex           // mu ensures thread-safe access to the data map.
-	ContextData map[string]interface{} // ContextData stores the key-value pairs shared across the behavior tree.
-	Blackboard  *Blackboard            // Blackboard provides hierarchical data sharing capabilities.
+	ctx        context.Context
+	blackboard *Blackboard
 }
 
-// ContextOption is a functional option for configuring a BehaviorContext.
+// ContextOption configures a BehaviorContext at construction time.
 type ContextOption func(*behaviorContextImpl)
 
-// NewBehaviorContext creates a new BehaviorContext instance with the specified base context.
-// The base context can be used for cancellation or passing deadlines to the behavior tree operations.
-func NewBehaviorContext(ctx context.Context, options ...ContextOption) BehaviorContext {
-	bc := &behaviorContextImpl{
-		Ctx:         ctx,
-		ContextData: make(map[string]interface{}),
-		Blackboard:  NewBlackboard(), // Default blackboard
+// WithBlackboard sets the blackboard used by the context.
+// If bb is nil, a fresh blackboard is used instead.
+func WithBlackboard(bb *Blackboard) ContextOption {
+	return func(c *behaviorContextImpl) {
+		if bb != nil {
+			c.blackboard = bb
+		}
 	}
+}
 
-	// Apply options
+// NewBehaviorContext creates a BehaviorContext wrapping parent for cancellation.
+// A new blackboard is allocated unless WithBlackboard is supplied.
+func NewBehaviorContext(parent context.Context, options ...ContextOption) BehaviorContext {
+	if parent == nil {
+		parent = context.Background()
+	}
+	bc := &behaviorContextImpl{
+		ctx:        parent,
+		blackboard: NewBlackboard(),
+	}
 	for _, option := range options {
 		option(bc)
 	}
-
 	return bc
 }
 
-// Set stores the value in the behaviorContextImpl for the given key.
-// This operation is thread-safe.
+// Set stores value under key on the blackboard.
 func (bc *behaviorContextImpl) Set(key string, value interface{}) {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
-	bc.ContextData[key] = value
+	bc.blackboard.Set(key, value)
 }
 
-// Get retrieves the value from the behaviorContextImpl for the given key.
-// It returns the value and a boolean indicating whether the key was found.
-// This operation is thread-safe.
+// Get retrieves value for key from the blackboard hierarchy.
 func (bc *behaviorContextImpl) Get(key string) (value interface{}, ok bool) {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
-	value, ok = bc.ContextData[key]
-	return
+	return bc.blackboard.Get(key)
 }
 
-// Delete removes the value from the behaviorContextImpl for the given key.
-// This operation is thread-safe.
+// Delete removes key from this blackboard (not parents).
 func (bc *behaviorContextImpl) Delete(key string) {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
-	delete(bc.ContextData, key)
+	bc.blackboard.Delete(key)
 }
 
-// Has checks if the given key exists in the context without retrieving the value.
-// This operation is thread-safe and more efficient than Get when only existence needs to be checked.
+// Has reports whether key exists in the blackboard hierarchy.
 func (bc *behaviorContextImpl) Has(key string) bool {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
-	_, ok := bc.ContextData[key]
-	return ok
+	return bc.blackboard.Has(key)
 }
 
-// GetBlackboard returns the blackboard associated with this context.
+// GetBlackboard returns the associated blackboard.
 func (bc *behaviorContextImpl) GetBlackboard() *Blackboard {
-	return bc.Blackboard
+	return bc.blackboard
+}
+
+// Context returns the underlying context.Context.
+func (bc *behaviorContextImpl) Context() context.Context {
+	return bc.ctx
 }

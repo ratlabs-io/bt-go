@@ -1,21 +1,21 @@
 package bt
 
-// Action represents a leaf node in a behavior tree that executes a specific task or operation.
-// It encapsulates a function that is called when the node is ticked, determining the outcome of the behavior.
+// Action is a leaf node that runs a user-supplied function.
 type Action struct {
-	runFunc func(ctx BehaviorContext) RunStatus // runFunc is the function executed when the action is ticked.
+	runFunc func(ctx BehaviorContext) RunStatus
 }
 
-// NewAction creates a new Action instance with the provided function.
-// The function should implement the logic of the action and return the appropriate RunStatus.
+// NewAction creates an Action from runFunc.
+// runFunc should return Success, Failure, or Running as appropriate.
+// If runFunc is nil, Tick returns Failure.
 func NewAction(runFunc func(ctx BehaviorContext) RunStatus) *Action {
-	return &Action{
-		runFunc: runFunc,
-	}
+	return &Action{runFunc: runFunc}
 }
 
-// Tick executes the action's function with the given BehaviorContext and returns its RunStatus.
-// This method satisfies the Behavior interface, allowing Action to be used as a node in the behavior tree.
+// Tick executes the action function.
 func (a *Action) Tick(ctx BehaviorContext) RunStatus {
+	if a.runFunc == nil {
+		return Failure
+	}
 	return a.runFunc(ctx)
 }

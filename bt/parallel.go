@@ -4,97 +4,99 @@ import (
 	"sync"
 )
 
-// ParallelPolicy defines how a Parallel node determines its return status based on child results.
+// ParallelPolicy defines how a Parallel node aggregates child results.
 type ParallelPolicy int
 
 const (
-	// RequireOne means the Parallel succeeds if at least one child succeeds, fails if all fail.
+	// RequireOne succeeds if at least one child succeeds; fails only if all fail.
 	RequireOne ParallelPolicy = iota
-	// RequireAll means the Parallel succeeds only if all children succeed, fails if any fail.
+	// RequireAll succeeds only if all children succeed; fails if any fail.
 	RequireAll
-	// SuccessOnAll means the Parallel succeeds only if all children succeed, returns Running otherwise.
+	// SuccessOnAll succeeds only if all children succeed; otherwise Running
+	// (never Failure — failures are treated as “not yet success”).
 	SuccessOnAll
-	// SuccessOnOne means the Parallel succeeds if at least one child succeeds, returns Running otherwise.
+	// SuccessOnOne succeeds if at least one child succeeds; otherwise Running
+	// (never Failure).
 	SuccessOnOne
 )
 
-// Parallel is a composite node that runs all its children concurrently.
+// String returns the policy name.
+func (p ParallelPolicy) String() string {
+	switch p {
+	case RequireOne:
+		return "RequireOne"
+	case RequireAll:
+		return "RequireAll"
+	case SuccessOnAll:
+		return "SuccessOnAll"
+	case SuccessOnOne:
+		return "SuccessOnOne"
+	default:
+		return "Unknown"
+	}
+}
+
+// Parallel ticks all children concurrently (one goroutine each) and aggregates
+// results according to policy.
+//
+// Children share the same BehaviorContext. Because the blackboard is
+// thread-safe, concurrent Set/Get is safe; actions that mutate other shared
+// state must synchronize themselves.
+//
+// Every child is ticked on every Parallel.Tick — there is no “skip completed
+// children” memory. That keeps policies like SuccessOnAll correct when a child
+// can recover from Failure on a later tick.
 type Parallel struct {
 	Composite
-	policy      ParallelPolicy
-	childStatus []RunStatus
+	policy ParallelPolicy
 }
 
-// NewParallel creates a new Parallel node with the given children and success policy.
+// NewParallel creates a Parallel node with the given policy and children.
 func NewParallel(policy ParallelPolicy, children ...Behavior) *Parallel {
-	childStatus := make([]RunStatus, len(children))
-	// Initialize all statuses to Running
-	for i := range childStatus {
-		childStatus[i] = Running
-	}
-
 	return &Parallel{
-		Composite:   Composite{Children: children},
-		policy:      policy,
-		childStatus: childStatus,
+		Composite: Composite{Children: children},
+		policy:    policy,
 	}
 }
 
-// Tick runs all child nodes concurrently and aggregates their results according to the policy.
+// Policy returns the aggregation policy.
+func (p *Parallel) Policy() ParallelPolicy {
+	return p.policy
+}
+
+// Tick runs all children concurrently and returns the policy result.
 func (p *Parallel) Tick(ctx BehaviorContext) RunStatus {
-	// Reset status if length mismatch (e.g. children added/removed)
-	if len(p.childStatus) != len(p.Children) {
-		p.childStatus = make([]RunStatus, len(p.Children))
-		for i := range p.childStatus {
-			p.childStatus[i] = Running
-		}
+	n := len(p.Children)
+	if n == 0 {
+		return Success
 	}
 
-	// Use a wait group to wait for all goroutines to finish
+	statuses := make([]RunStatus, n)
 	var wg sync.WaitGroup
-	var mu sync.Mutex // To protect access to childStatus
 
-	// Start a goroutine for each child
 	for i, child := range p.Children {
 		if child == nil {
-			p.childStatus[i] = Failure
+			statuses[i] = Failure
 			continue
 		}
-
-		// Only start a goroutine for children still running
-		if p.childStatus[i] == Running {
-			wg.Add(1)
-			go func(index int, behavior Behavior) {
-				defer wg.Done()
-
-				// Create a separate context for each child to avoid race conditions
-				// We only use the blackboard from the main context
-				childCtx := NewBehaviorContext(ctx.(*behaviorContextImpl).Ctx,
-					WithBlackboard(ctx.(*behaviorContextImpl).Blackboard))
-
-				status := behavior.Tick(childCtx)
-
-				mu.Lock()
-				p.childStatus[index] = status
-				mu.Unlock()
-			}(i, child)
-		}
+		wg.Add(1)
+		go func(index int, behavior Behavior) {
+			defer wg.Done()
+			// Share the parent context so Set/Get/blackboard stay coherent.
+			statuses[index] = behavior.Tick(ctx)
+		}(i, child)
 	}
 
-	// Wait for all children to complete execution
 	wg.Wait()
-
-	// Determine the result based on the policy
-	return p.evaluatePolicy()
+	return evaluateParallelPolicy(p.policy, statuses)
 }
 
-// evaluatePolicy determines the final status based on child statuses and policy.
-func (p *Parallel) evaluatePolicy() RunStatus {
+func evaluateParallelPolicy(policy ParallelPolicy, statuses []RunStatus) RunStatus {
 	successCount := 0
 	failureCount := 0
 	runningCount := 0
 
-	for _, status := range p.childStatus {
+	for _, status := range statuses {
 		switch status {
 		case Success:
 			successCount++
@@ -105,12 +107,14 @@ func (p *Parallel) evaluatePolicy() RunStatus {
 		}
 	}
 
-	switch p.policy {
+	total := len(statuses)
+
+	switch policy {
 	case RequireOne:
 		if successCount > 0 {
 			return Success
 		}
-		if failureCount == len(p.childStatus) {
+		if failureCount == total {
 			return Failure
 		}
 		return Running
@@ -119,13 +123,13 @@ func (p *Parallel) evaluatePolicy() RunStatus {
 		if failureCount > 0 {
 			return Failure
 		}
-		if successCount == len(p.childStatus) {
+		if successCount == total {
 			return Success
 		}
 		return Running
 
 	case SuccessOnAll:
-		if successCount == len(p.childStatus) {
+		if successCount == total {
 			return Success
 		}
 		return Running
@@ -137,11 +141,11 @@ func (p *Parallel) evaluatePolicy() RunStatus {
 		return Running
 
 	default:
-		// Default to RequireOne
+		// Unknown policy: same as RequireOne.
 		if successCount > 0 {
 			return Success
 		}
-		if failureCount == len(p.childStatus) {
+		if failureCount == total {
 			return Failure
 		}
 		return Running

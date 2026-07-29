@@ -6,49 +6,45 @@ import (
 	"strings"
 )
 
-// NodeVisualizer is an interface for custom node visualization.
+// NodeVisualizer lets custom nodes supply their own label for tree dumps.
 type NodeVisualizer interface {
-	// VisualizeNode returns a string representation of the node.
 	VisualizeNode() string
 }
 
-// TreeVisualizer generates a text representation of a behavior tree.
+// TreeVisualizer renders a behavior tree as indented text.
 type TreeVisualizer struct {
 	root           Behavior
 	showNodeStatus bool
 	nodeStatuses   map[Behavior]RunStatus
 }
 
-// NewTreeVisualizer creates a new TreeVisualizer for the given root behavior.
+// NewTreeVisualizer creates a visualizer for root.
 func NewTreeVisualizer(root Behavior) *TreeVisualizer {
 	return &TreeVisualizer{
-		root:           root,
-		showNodeStatus: false,
-		nodeStatuses:   make(map[Behavior]RunStatus),
+		root:         root,
+		nodeStatuses: make(map[Behavior]RunStatus),
 	}
 }
 
-// WithNodeStatuses enables status display and sets the node statuses to display.
+// WithNodeStatuses enables status annotations from the given map.
 func (tv *TreeVisualizer) WithNodeStatuses(statuses map[Behavior]RunStatus) *TreeVisualizer {
 	tv.showNodeStatus = true
 	tv.nodeStatuses = statuses
 	return tv
 }
 
-// Visualize returns a string representation of the behavior tree.
+// Visualize returns a multi-line text representation of the tree.
 func (tv *TreeVisualizer) Visualize() string {
 	var builder strings.Builder
 	tv.visualizeNode(&builder, tv.root, "", true, true)
 	return builder.String()
 }
 
-// visualizeNode recursively builds a string representation of a behavior tree node.
 func (tv *TreeVisualizer) visualizeNode(builder *strings.Builder, node Behavior, prefix string, isLast bool, isRoot bool) {
 	if node == nil {
 		return
 	}
 
-	// Determine the connector and new prefix for child nodes
 	connector := "├── "
 	newPrefix := prefix + "│   "
 	if isLast {
@@ -62,42 +58,17 @@ func (tv *TreeVisualizer) visualizeNode(builder *strings.Builder, node Behavior,
 		builder.WriteString(connector)
 	}
 
-	// Get node name
 	nodeName := tv.getNodeName(node)
-
-	// Add status if enabled
 	if tv.showNodeStatus {
 		if status, ok := tv.nodeStatuses[node]; ok {
 			nodeName = fmt.Sprintf("%s [%s]", nodeName, status)
 		}
 	}
-
 	builder.WriteString(nodeName)
 	builder.WriteString("\n")
 
-	// Handle child nodes
+	// Special shapes first (Repeater needs an extra annotation line before Decorator).
 	switch n := node.(type) {
-	case *Sequence:
-		for i, child := range n.Children {
-			tv.visualizeNode(builder, child, newPrefix, i == len(n.Children)-1, false)
-		}
-	case *Selector:
-		for i, child := range n.Children {
-			tv.visualizeNode(builder, child, newPrefix, i == len(n.Children)-1, false)
-		}
-	case *PrioritySelector:
-		for i, child := range n.Children {
-			tv.visualizeNode(builder, child, newPrefix, i == len(n.Children)-1, false)
-		}
-	case *Parallel:
-		for i, child := range n.Children {
-			tv.visualizeNode(builder, child, newPrefix, i == len(n.Children)-1, false)
-		}
-	case *Conditional:
-		tv.visualizeNode(builder, n.Condition, newPrefix, false, false)
-		tv.visualizeNode(builder, n.Action, newPrefix, true, false)
-	case *Inverter:
-		tv.visualizeNode(builder, n.Child, newPrefix, true, false)
 	case *Repeater:
 		limit := "∞"
 		if !n.infinite {
@@ -106,30 +77,69 @@ func (tv *TreeVisualizer) visualizeNode(builder *strings.Builder, node Behavior,
 		builder.WriteString(newPrefix)
 		builder.WriteString(fmt.Sprintf("Repeat count: %s\n", limit))
 		tv.visualizeNode(builder, n.Child, newPrefix, true, false)
-	case *UntilSuccess:
-		tv.visualizeNode(builder, n.Child, newPrefix, true, false)
-	case *UntilFailure:
-		tv.visualizeNode(builder, n.Child, newPrefix, true, false)
+		return
+	case *Conditional:
+		tv.visualizeNode(builder, n.Condition, newPrefix, false, false)
+		tv.visualizeNode(builder, n.Action, newPrefix, true, false)
+		return
+	case *BinarySelector:
+		tv.visualizeNode(builder, n.Condition, newPrefix, false, false)
+		tv.visualizeNode(builder, n.IfTrue, newPrefix, false, false)
+		tv.visualizeNode(builder, n.IfFalse, newPrefix, true, false)
+		return
+	case *Switch:
+		// Map iteration order is randomized; list cases then default.
+		i := 0
+		total := len(n.Cases)
+		if n.Default != nil {
+			total++
+		}
+		for key, child := range n.Cases {
+			lastCase := i == total-1
+			caseConnector := "├── "
+			casePrefix := newPrefix + "│   "
+			if lastCase {
+				caseConnector = "└── "
+				casePrefix = newPrefix + "    "
+			}
+			builder.WriteString(newPrefix)
+			builder.WriteString(caseConnector)
+			builder.WriteString(fmt.Sprintf("case %q\n", key))
+			tv.visualizeNode(builder, child, casePrefix, true, false)
+			i++
+		}
+		if n.Default != nil {
+			builder.WriteString(newPrefix)
+			builder.WriteString("└── default\n")
+			tv.visualizeNode(builder, n.Default, newPrefix+"    ", true, false)
+		}
+		return
+	}
+
+	if d, ok := node.(Decorator); ok {
+		tv.visualizeNode(builder, d.GetChild(), newPrefix, true, false)
+		return
+	}
+
+	if cp, ok := node.(ChildrenProvider); ok {
+		children := cp.GetChildren()
+		for i, child := range children {
+			tv.visualizeNode(builder, child, newPrefix, i == len(children)-1, false)
+		}
 	}
 }
 
-// getNodeName returns a human-readable name for a behavior tree node.
 func (tv *TreeVisualizer) getNodeName(node Behavior) string {
-	// Check if node implements NodeVisualizer
 	if visualizer, ok := node.(NodeVisualizer); ok {
 		return visualizer.VisualizeNode()
 	}
 
-	// Get type name without package prefix
 	typeName := reflect.TypeOf(node).String()
 	if strings.Contains(typeName, ".") {
 		typeName = typeName[strings.LastIndex(typeName, ".")+1:]
 	}
-
-	// Remove pointer operator if present
 	typeName = strings.TrimPrefix(typeName, "*")
 
-	// Handle special cases
 	switch n := node.(type) {
 	case *Action:
 		return "Action"
@@ -139,23 +149,18 @@ func (tv *TreeVisualizer) getNodeName(node Behavior) string {
 		return "Conditional"
 	case *Sequence:
 		return "Sequence"
+	case *MemorySequence:
+		return "MemorySequence"
 	case *Selector:
 		return "Selector"
-	case *PrioritySelector:
-		return "PrioritySelector"
+	case *MemorySelector:
+		return "MemorySelector"
 	case *Parallel:
-		policy := ""
-		switch n.policy {
-		case RequireOne:
-			policy = "RequireOne"
-		case RequireAll:
-			policy = "RequireAll"
-		case SuccessOnAll:
-			policy = "SuccessOnAll"
-		case SuccessOnOne:
-			policy = "SuccessOnOne"
-		}
-		return fmt.Sprintf("Parallel(%s)", policy)
+		return fmt.Sprintf("Parallel(%s)", n.Policy())
+	case *BinarySelector:
+		return "BinarySelector"
+	case *Switch:
+		return "Switch"
 	case *Inverter:
 		return "Inverter"
 	case *Repeater:
@@ -169,30 +174,47 @@ func (tv *TreeVisualizer) getNodeName(node Behavior) string {
 	}
 }
 
-// SaveTreeSnapshot captures the current state of a behavior tree during execution.
-type SaveTreeSnapshot struct {
+// StatusRecorder records the status of nodes as they are ticked.
+// It is a debugging aid, not a tree node itself.
+//
+// Prefer wrapping ticks you care about:
+//
+//	rec := bt.NewStatusRecorder()
+//	status := rec.Tick(ctx, root) // records root only
+//
+// For full-tree status maps, wrap individual leaves or use a custom decorator.
+type StatusRecorder struct {
 	statusMap map[Behavior]RunStatus
 }
 
-// NewSaveTreeSnapshot creates a new tree snapshot decorator.
-func NewSaveTreeSnapshot() *SaveTreeSnapshot {
-	return &SaveTreeSnapshot{
-		statusMap: make(map[Behavior]RunStatus),
-	}
+// NewStatusRecorder creates an empty status recorder.
+func NewStatusRecorder() *StatusRecorder {
+	return &StatusRecorder{statusMap: make(map[Behavior]RunStatus)}
 }
 
-// Visualize returns a visualization of the tree with node statuses.
-func (s *SaveTreeSnapshot) Visualize(root Behavior) string {
+// NewSaveTreeSnapshot is a deprecated alias for NewStatusRecorder.
+//
+// Deprecated: use NewStatusRecorder.
+func NewSaveTreeSnapshot() *StatusRecorder {
+	return NewStatusRecorder()
+}
+
+// Visualize renders root with recorded statuses annotated.
+func (s *StatusRecorder) Visualize(root Behavior) string {
 	return NewTreeVisualizer(root).WithNodeStatuses(s.statusMap).Visualize()
 }
 
-// GetStatusMap returns the collected node statuses.
-func (s *SaveTreeSnapshot) GetStatusMap() map[Behavior]RunStatus {
+// GetStatusMap returns the map of recorded node statuses.
+func (s *StatusRecorder) GetStatusMap() map[Behavior]RunStatus {
 	return s.statusMap
 }
 
-// Tick records the status of the node and propagates the tick to the child.
-func (s *SaveTreeSnapshot) Tick(ctx BehaviorContext, node Behavior) RunStatus {
+// Tick runs node, records its status, and returns that status.
+// Only the node itself is recorded — not its descendants.
+func (s *StatusRecorder) Tick(ctx BehaviorContext, node Behavior) RunStatus {
+	if node == nil {
+		return Failure
+	}
 	status := node.Tick(ctx)
 	s.statusMap[node] = status
 	return status
